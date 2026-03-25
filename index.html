@@ -3,24 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 虛擬試妝 - 終極完全體</title>
+    <title>AI 虛擬試妝 - 專業演示強化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .camera-box { background: #000; border-radius: 15px; position: relative; overflow: hidden; border: 4px solid transparent; transition: all 0.3s; }
         .hidden { display: none; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); transition: filter 0.4s ease; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); transition: all 0.3s ease; }
         
-        /* 🎨 強效特效區塊 */
-        .foundation-mode #webcam { filter: scaleX(-1) brightness(1.1) contrast(0.9) saturate(1.1) blur(0.5px); }
-        .foundation-mode .camera-box { border-color: #fce7f3; box-shadow: 0 0 20px rgba(252, 231, 243, 0.5); } 
+        /* 🎨 新增：色彩覆蓋層，確保顏色絕對跳出來 */
+        .color-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; opacity: 0; transition: all 0.4s ease;
+            mix-blend-mode: soft-light; /* 專業模式：讓顏色自然融入皮膚但極度鮮豔 */
+        }
 
-        .eyemakeup-mode #webcam { filter: scaleX(-1) sepia(0.6) saturate(2.5) hue-rotate(-50deg) brightness(0.85) contrast(1.2); }
-        .eyemakeup-mode .camera-box { border-color: #fbcfe8; box-shadow: 0 0 20px rgba(251, 207, 232, 0.5); }
+        /* ✨ 底妝模式：增加亮白度與柔焦 */
+        .foundation-mode #webcam { filter: scaleX(-1) brightness(1.15) contrast(0.9) blur(0.8px); }
+        .foundation-mode .camera-box { border-color: #fce7f3; }
 
-        .lipstick-mode #webcam { filter: scaleX(-1) saturate(3.5) hue-rotate(40deg) brightness(0.8) contrast(1.3); }
-        .lipstick-mode .camera-box { border-color: #f9a8d4; box-shadow: 0 0 20px rgba(249, 168, 212, 0.5); }
+        /* 👁️ 眼妝模式：強烈的深咖啡/紫色調（演示最明顯） */
+        .eyemakeup-mode #webcam { filter: scaleX(-1) sepia(0.8) contrast(1.3) brightness(0.8); }
+        .eyemakeup-mode .color-overlay { opacity: 0.5; background: linear-gradient(to bottom, rgba(88, 28, 135, 0.4), transparent); }
+        .eyemakeup-mode .camera-box { border-color: #fbcfe8; }
 
-        .active-btn { @apply bg-pink-500 text-white font-bold scale-105; }
+        /* 💄 唇妝模式：極度飽和的正紅色 */
+        .lipstick-mode #webcam { filter: scaleX(-1) saturate(4) brightness(0.85) contrast(1.2); }
+        .lipstick-mode .color-overlay { opacity: 0.4; background: radial-gradient(circle, rgba(220, 38, 38, 0.5) 0%, transparent 70%); }
+        .lipstick-mode .camera-box { border-color: #f9a8d4; }
+
+        .active-btn { @apply bg-pink-500 text-white font-bold scale-105 shadow-md; }
     </style>
 </head>
 <body class="bg-pink-50 min-h-screen font-sans">
@@ -53,11 +64,11 @@
                     <h3 class="font-bold border-b pb-2 mb-4 text-gray-700">AI 推薦 / 產品選擇</h3>
                     <div class="grid grid-cols-2 gap-2">
                         <div onclick="selectProduct('落日暖棕眼影')" class="border p-2 rounded text-center cursor-pointer hover:border-pink-500 transition">
-                            <div class="w-full h-12 bg-orange-100 mb-1 rounded shadow-inner"></div>
+                            <div class="w-full h-12 bg-orange-100 mb-1 rounded"></div>
                             <span class="text-[10px] text-gray-500">落日暖棕眼影</span>
                         </div>
                         <div onclick="selectProduct('AI 推薦款')" class="border p-2 rounded text-center cursor-pointer border-pink-500 bg-pink-50 transition">
-                            <div class="w-full h-12 bg-pink-200 mb-1 rounded shadow-inner"></div>
+                            <div class="w-full h-12 bg-pink-200 mb-1 rounded"></div>
                             <span class="text-[10px] font-bold text-pink-600">AI 推薦款</span>
                         </div>
                     </div>
@@ -67,12 +78,13 @@
             <div class="md:col-span-2">
                 <div id="camera-container" class="camera-box aspect-video flex items-center justify-center shadow-2xl">
                     <video id="webcam" autoplay playsinline></video>
-                    <span id="camera-loading" class="absolute text-white animate-pulse">📷 正在啟動 AI 鏡頭...</span>
+                    <div id="overlay" class="color-overlay"></div>
+                    <span id="camera-loading" class="absolute text-white animate-pulse">📷 啟動 AI 鏡頭...</span>
                 </div>
                 <div class="mt-6 flex justify-between gap-4">
-                    <button onclick="location.reload()" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium">重設</button>
-                    <button onclick="goToCompare()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl shadow-lg font-bold text-lg transition">
-                        查看差異對比
+                    <button onclick="location.reload()" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl">重設</button>
+                    <button onclick="goToCompare()" class="flex-1 bg-indigo-600 text-white px-8 py-3 rounded-xl shadow-lg font-bold text-lg">
+                        差異對比
                     </button>
                 </div>
             </div>
@@ -82,15 +94,15 @@
             <h2 class="text-2xl font-bold mb-8 text-gray-800">試妝效果即時對比</h2>
             <div class="flex flex-col md:flex-row justify-center gap-8 mb-10">
                 <div class="flex-1">
-                    <p class="font-bold text-gray-400 mb-2">ORIGINAL</p>
+                    <p class="font-bold text-gray-400 mb-2 uppercase">Original</p>
                     <canvas id="canvas-before" class="w-full rounded-2xl bg-gray-100 shadow-md" width="640" height="480"></canvas>
                 </div>
                 <div class="flex-1">
-                    <p class="font-bold text-pink-600 mb-2">AI ENHANCED</p>
+                    <p class="font-bold text-pink-600 mb-2 uppercase">AI Enhanced</p>
                     <canvas id="canvas-after" class="w-full rounded-2xl bg-gray-100 border-4 border-pink-200 shadow-xl" width="640" height="480"></canvas>
                 </div>
             </div>
-            <button onclick="resetTryOn()" class="bg-gray-800 text-white px-12 py-4 rounded-full font-bold shadow-lg">返回調整</button>
+            <button onclick="resetTryOn()" class="bg-gray-800 text-white px-12 py-4 rounded-full font-bold">返回調整</button>
         </div>
     </main>
 
@@ -106,13 +118,14 @@
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
                 video.srcObject = stream;
                 document.getElementById('camera-loading').classList.add('hidden');
-            } catch (err) { alert("鏡頭出錯：" + err.message); }
+            } catch (err) { alert("鏡頭權限遭拒絕！"); }
         }
 
         function selectCategory(cat) {
             const container = document.getElementById('camera-container');
             container.classList.remove('foundation-mode', 'eyemakeup-mode', 'lipstick-mode');
             document.querySelectorAll('button[id^="btn-"]').forEach(btn => btn.classList.remove('active-btn'));
+            
             if (cat === '底妝') {
                 container.classList.add('foundation-mode');
                 document.getElementById('btn-foundation').classList.add('active-btn');
@@ -128,9 +141,7 @@
             }
         }
 
-        function selectProduct(product) {
-            alert("已選擇產品：" + product + "，AI 正在加載專屬參數...");
-        }
+        function selectProduct(p) { alert("選取產品：" + p); }
 
         function goToCompare() {
             document.getElementById('step-main').classList.add('hidden');
@@ -139,12 +150,22 @@
             const cB = document.getElementById('canvas-before'), ctxB = cB.getContext('2d');
             const cA = document.getElementById('canvas-after'), ctxA = cA.getContext('2d');
 
+            // 繪製 Original
             ctxB.save(); ctxB.scale(-1, 1); ctxB.drawImage(video, -640, 0, 640, 480); ctxB.restore();
+            
+            // 繪製 AI 版 (同步強化濾鏡)
             ctxA.save(); ctxA.scale(-1, 1);
-            if (currentMode === 'foundation') ctxA.filter = 'brightness(1.1) contrast(0.9) saturate(1.1) blur(0.5px)';
-            else if (currentMode === 'eyemakeup') ctxA.filter = 'sepia(0.6) saturate(2.5) hue-rotate(-50deg) brightness(0.85) contrast(1.2)';
-            else ctxA.filter = 'saturate(3.5) hue-rotate(40deg) brightness(0.8) contrast(1.3)';
-            ctxA.drawImage(video, -640, 0, 640, 480); ctxA.restore();
+            if (currentMode === 'foundation') ctxA.filter = 'brightness(1.15) contrast(0.9) blur(0.8px)';
+            else if (currentMode === 'eyemakeup') ctxA.filter = 'sepia(0.8) contrast(1.3) brightness(0.8)';
+            else ctxA.filter = 'saturate(4) brightness(0.85) contrast(1.2)';
+            ctxA.drawImage(video, -640, 0, 640, 480);
+            
+            // 繪製色彩層補償 (Canvas 模擬 mix-blend-mode)
+            ctxA.globalCompositeOperation = 'soft-light';
+            if (currentMode === 'eyemakeup') { ctxA.fillStyle = 'rgba(88, 28, 135, 0.4)'; ctxA.fillRect(-640, 0, 640, 480); }
+            else if (currentMode === 'lipstick') { ctxA.fillStyle = 'rgba(220, 38, 38, 0.4)'; ctxA.fillRect(-640, 0, 640, 480); }
+            
+            ctxA.restore();
         }
 
         function resetTryOn() {
