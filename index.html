@@ -3,202 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 虛擬試妝 - heme 質感系列</title>
+    <title>heme AI 虛擬試妝系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 基礎樣式保持不變 */
-        .camera-box { background: #000; border-radius: 15px; position: relative; overflow: hidden; border: 4px solid #f3f4f6; transition: all 0.3s; }
-        .hidden { display: none; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); transition: all 0.3s ease; }
+        :root { --heme-stone: #a8a29e; --heme-dark: #292524; }
+        .camera-box { background: #000; border-radius: 20px; position: relative; overflow: hidden; border: 2px solid #e7e5e4; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         
-        .color-overlay {
+        /* ✨ 關鍵：妝容貼合層 (不再是全螢幕換色) */
+        .makeup-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; opacity: 0; transition: all 0.4s ease;
-            mix-blend-mode: soft-light;
+            pointer-events: none; opacity: 0; transition: all 0.5s ease;
+            /* 使用徑向漸層讓顏色集中在面部中心，邊緣淡出以達到自然貼合 */
+            mask-image: radial-gradient(circle at center, black 30%, transparent 70%);
+            -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 70%);
         }
 
-        /* ✨ 模式濾鏡設定：參考 heme 質感調色 */
-        /* 底妝：絲絨霧面感 */
-        .foundation-mode #webcam { filter: scaleX(-1) brightness(1.1) contrast(0.95) saturate(0.9) blur(1px); }
+        .active-cate { @apply bg-stone-800 text-white shadow-lg scale-105; }
+        .product-item { @apply border border-stone-200 p-2 rounded-lg text-center cursor-pointer hover:bg-stone-50 transition; }
+        .active-prod { @apply border-stone-800 ring-1 ring-stone-800 bg-stone-50; }
         
-        /* 眼妝：焦糖棕/乾燥玫瑰 (預設) */
-        .eyemakeup-mode #webcam { filter: scaleX(-1) sepia(0.6) contrast(1.2) brightness(0.85); }
-        .eyemakeup-mode .color-overlay { opacity: 0.6; background: linear-gradient(to bottom, rgba(139, 69, 19, 0.4), transparent); }
-
-        /* 唇妝：經典紅/柔霧色 (預設) */
-        .lipstick-mode #webcam { filter: scaleX(-1) saturate(3) brightness(0.8); }
-        .lipstick-mode .color-overlay { opacity: 0.5; background: radial-gradient(circle, rgba(153, 27, 27, 0.6) 0%, transparent 75%); }
-
-        .active-btn { @apply bg-stone-700 text-white font-bold scale-105 shadow-lg; }
-        .product-card { @apply border p-2 rounded-lg text-center cursor-pointer hover:border-stone-500 transition bg-white; }
-        .product-active { @apply border-stone-800 bg-stone-50 ring-2 ring-stone-200; }
+        /* 提醒彈窗樣式 */
+        .modal { background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
     </style>
 </head>
-<body class="bg-stone-50 min-h-screen font-sans text-stone-800">
+<body class="bg-[#fcfaf8] min-h-screen font-sans text-stone-800">
 
-    <nav class="bg-white shadow-sm p-4 text-center border-b border-stone-200">
-        <h1 class="text-xl font-bold tracking-widest text-stone-700 underline decoration-stone-300">AI VIRTUAL MAKEUP x heme STYLE</h1>
+    <div id="notice-modal" class="fixed inset-0 modal">
+        <div class="bg-white p-8 rounded-2xl max-w-sm w-full mx-4 text-center shadow-2xl">
+            <div class="text-4xl mb-4">💡</div>
+            <h3 class="text-xl font-bold mb-2">試妝前提醒 <span class="text-sm font-light text-stone-400">Notice</span></h3>
+            <p class="text-stone-500 text-sm mb-6 leading-relaxed">
+                為確保妝容貼合度與色彩準確性，請確保您處於**光線充足**的環境，並**避免背光**。
+            </p>
+            <button onclick="closeNotice()" class="w-full bg-stone-800 text-white py-3 rounded-xl font-bold hover:bg-black transition">
+                我知道了 <span class="text-xs font-light opacity-70 ml-1">Confirm</span>
+            </button>
+        </div>
+    </div>
+
+    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 p-4 border-b border-stone-100 flex justify-center items-center">
+        <div class="text-center">
+            <h1 class="text-xl font-bold tracking-widest text-stone-800">虛擬試妝體驗</h1>
+            <p class="text-[10px] text-stone-400 uppercase tracking-[0.2em] font-light">Virtual Makeup Experience</p>
+        </div>
     </nav>
 
-    <main class="max-w-5xl mx-auto mt-6 p-4">
+    <main class="max-w-6xl mx-auto p-4 lg:p-8">
         
         <div id="step-start" class="text-center py-20">
-            <div class="mb-8 inline-block p-4 border border-stone-300">
-                <h2 class="text-2xl font-light tracking-widest uppercase">Experience High-End Texture</h2>
-            </div>
-            <br>
-            <button onclick="requestCamera()" class="bg-stone-800 hover:bg-black text-white px-12 py-4 rounded-none transition shadow-xl text-lg font-bold tracking-widest">
-                START TRY-ON
+            <h2 class="text-3xl font-light mb-2">探索妳的專屬本色</h2>
+            <p class="text-stone-400 text-sm mb-10 tracking-widest">Discover Your True Shades</p>
+            <button onclick="requestCamera()" class="bg-stone-800 text-white px-12 py-4 rounded-full shadow-xl hover:scale-105 transition-all font-bold">
+                立即體驗 <span class="text-xs font-light ml-2">Try It On</span>
             </button>
         </div>
 
-        <div id="step-main" class="hidden grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div id="step-main" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            <div class="lg:col-span-1 space-y-6">
-                <div class="bg-white p-5 shadow-sm border border-stone-200">
-                    <h3 class="font-bold border-b border-stone-100 pb-2 mb-4 uppercase tracking-tighter">Category / 類別</h3>
-                    <div class="flex flex-col space-y-2">
-                        <button id="btn-foundation" onclick="selectCategory('底妝')" class="text-left p-3 border border-stone-100 rounded hover:bg-stone-50 transition">✨ 絲絨底妝</button>
-                        <button id="btn-eyemakeup" onclick="selectCategory('眼妝')" class="text-left p-3 border border-stone-100 rounded hover:bg-stone-50 transition">👁️ 六色眼影盤</button>
-                        <button id="btn-lipstick" onclick="selectCategory('唇妝')" class="text-left p-3 border border-stone-100 rounded hover:bg-stone-50 transition">💄 經典唇膏</button>
+            <div class="lg:col-span-4 space-y-6 order-2 lg:order-1">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+                    <h3 class="text-sm font-bold mb-4 flex items-center">
+                        <span class="w-1 h-4 bg-stone-800 mr-2"></span>
+                        選擇類別 <span class="text-[10px] text-stone-300 ml-2 uppercase font-light">Categories</span>
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2 mb-8">
+                        <button id="btn-底妝" onclick="selectCate('底妝')" class="py-3 text-xs border border-stone-100 rounded-xl transition">底妝</button>
+                        <button id="btn-眼妝" onclick="selectCate('眼妝')" class="py-3 text-xs border border-stone-100 rounded-xl transition">眼妝</button>
+                        <button id="btn-唇妝" onclick="selectCate('唇妝')" class="py-3 text-xs border border-stone-100 rounded-xl transition">唇妝</button>
                     </div>
-                </div>
 
-                <div id="product-list" class="bg-white p-5 shadow-sm border border-stone-200 min-h-[300px]">
-                    <h3 class="font-bold border-b border-stone-100 pb-2 mb-4 uppercase tracking-tighter">Select Shades / 色號選擇</h3>
-                    <div id="product-items" class="grid grid-cols-2 gap-3">
-                        <p class="col-span-2 text-stone-400 text-sm italic">請先選擇上方類別...</p>
-                    </div>
+                    <h3 class="text-sm font-bold mb-4 flex items-center">
+                        <span class="w-1 h-4 bg-stone-800 mr-2"></span>
+                        挑選色號 <span class="text-[10px] text-stone-300 ml-2 uppercase font-light">Select Shades</span>
+                    </h3>
+                    <div id="product-grid" class="grid grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2">
+                        </div>
                 </div>
             </div>
 
-            <div class="lg:col-span-3">
-                <div id="camera-container" class="camera-box aspect-video flex items-center justify-center shadow-xl">
+            <div class="lg:col-span-8 order-1 lg:order-2">
+                <div id="camera-container" class="camera-box aspect-[4/3] shadow-2xl">
                     <video id="webcam" autoplay playsinline></video>
-                    <div id="overlay" class="color-overlay"></div>
-                    <span id="camera-loading" class="absolute text-stone-400 animate-pulse">Initializing AI...</span>
-                </div>
-                <div class="mt-6 flex justify-between items-center bg-white p-4 border border-stone-200">
-                    <div class="text-sm font-light text-stone-500">當前效果：<span id="current-label" class="font-bold text-stone-800">無</span></div>
-                    <div class="flex gap-4">
-                        <button onclick="location.reload()" class="text-stone-400 hover:text-stone-800 text-sm">重設</button>
-                        <button onclick="goToCompare()" class="bg-stone-800 text-white px-10 py-3 font-bold shadow-lg hover:bg-black transition">
-                            COMPARE 差異對比
-                        </button>
+                    <div id="makeup-layer" class="makeup-overlay"></div>
+                    <div id="loading" class="absolute inset-0 flex items-center justify-center bg-stone-50 text-stone-400">
+                        鏡頭啟動中...
                     </div>
+                </div>
+                <div class="mt-4 flex justify-between">
+                    <button onclick="location.reload()" class="text-stone-400 text-xs hover:text-stone-800">重置 Reset</button>
+                    <button onclick="goToCompare()" class="bg-stone-800 text-white px-8 py-3 rounded-xl font-bold shadow-lg text-sm">
+                        查看對比 <span class="font-light ml-1 italic">Comparison</span>
+                    </button>
                 </div>
             </div>
         </div>
 
-        <div id="step-compare" class="hidden bg-white p-8 border border-stone-200 shadow-2xl text-center">
-            <h2 class="text-xl font-light mb-10 tracking-[0.2em] uppercase">Visual Comparison</h2>
-            <div class="flex flex-col md:flex-row justify-center gap-10 mb-10">
-                <div class="flex-1">
-                    <p class="text-xs font-bold text-stone-400 mb-4 tracking-widest uppercase">Before</p>
-                    <canvas id="canvas-before" class="w-full rounded-sm grayscale-[20%] shadow-lg" width="640" height="480"></canvas>
+        <div id="step-compare" class="hidden bg-white p-6 rounded-3xl shadow-xl">
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <div>
+                    <p class="text-center text-[10px] text-stone-400 mb-2 uppercase tracking-widest">Original</p>
+                    <canvas id="c-before" class="w-full rounded-xl shadow-inner bg-stone-50" width="640" height="480"></canvas>
                 </div>
-                <div class="flex-1">
-                    <p class="text-xs font-bold text-stone-600 mb-4 tracking-widest uppercase italic underline">After with heme</p>
-                    <canvas id="canvas-after" class="w-full rounded-sm border border-stone-100 shadow-2xl" width="640" height="480"></canvas>
+                <div>
+                    <p class="text-center text-[10px] text-stone-800 mb-2 uppercase tracking-widest font-bold">Enhanced</p>
+                    <canvas id="c-after" class="w-full rounded-xl shadow-lg bg-stone-50" width="640" height="480"></canvas>
                 </div>
             </div>
-            <button onclick="resetTryOn()" class="bg-stone-200 text-stone-700 px-12 py-3 font-bold hover:bg-stone-300">← BACK</button>
+            <button onclick="resetTryOn()" class="w-full py-4 text-stone-500 font-bold border-t border-stone-100">返回修改 Back</button>
         </div>
     </main>
 
     <script>
         let stream = null;
-        let currentMode = '';
-        let currentFilter = { overlay: '', filter: '' };
+        let activeData = { filter: '', color: '', mode: '' };
 
-        // 模擬 heme 的產品資料庫
         const products = {
             '底妝': [
-                { name: '01 Ivory', color: '#fdf5e6', filter: 'brightness(1.15) contrast(0.9) blur(1px)' },
-                { name: '02 Beige', color: '#f5deb3', filter: 'brightness(1.05) contrast(0.95) saturate(1.1) blur(1px)' }
+                { name: '01 柔白', en: 'Ivory', color: '#fcf3e8', filter: 'brightness(1.1) blur(1px)', mix: 'soft-light' },
+                { name: '02 自然', en: 'Beige', color: '#f5e1cc', filter: 'brightness(1.0) contrast(0.95) blur(0.8px)', mix: 'soft-light' },
+                { name: '03 裸膚', en: 'Sand', color: '#eccfb2', filter: 'brightness(0.95) contrast(0.9) blur(0.8px)', mix: 'soft-light' }
             ],
             '眼妝': [
-                { name: '焦糖可可', color: '#8b4513', overlay: 'rgba(139, 69, 19, 0.4)', filter: 'sepia(0.8) contrast(1.3) brightness(0.8)' },
-                { name: '乾燥玫瑰', color: '#bc8f8f', overlay: 'rgba(188, 143, 143, 0.4)', filter: 'sepia(0.3) hue-rotate(-20deg) saturate(1.8)' },
-                { name: '暖粉棕', color: '#db7093', overlay: 'rgba(219, 112, 147, 0.3)', filter: 'hue-rotate(-10deg) saturate(2)' }
+                { name: '焦糖', en: 'Caramel', color: '#8b4513', filter: 'sepia(0.5) contrast(1.1)', mix: 'multiply' },
+                { name: '玫瑰', en: 'Rose', color: '#bc8f8f', filter: 'sepia(0.3) saturate(1.5)', mix: 'multiply' },
+                { name: '藕粉', en: 'Mauve', color: '#a37c7c', filter: 'hue-rotate(-10deg) saturate(1.3)', mix: 'multiply' },
+                { name: '大地', en: 'Earth', color: '#634b35', filter: 'brightness(0.8) contrast(1.2)', mix: 'multiply' }
             ],
             '唇妝': [
-                { name: '經典紅', color: '#991b1b', overlay: 'rgba(153, 27, 27, 0.4)', filter: 'saturate(3.5) brightness(0.8)' },
-                { name: '珊瑚橘', color: '#ea580c', overlay: 'rgba(234, 88, 12, 0.3)', filter: 'hue-rotate(20deg) saturate(3)' },
-                { name: '焦糖拿鐵', color: '#78350f', overlay: 'rgba(120, 53, 15, 0.5)', filter: 'sepia(0.9) brightness(0.7)' }
+                { name: '紅酒', en: 'Wine', color: '#7f1d1d', filter: 'saturate(2)', mix: 'soft-light' },
+                { name: '珊瑚', en: 'Coral', color: '#c2410c', filter: 'hue-rotate(15deg) saturate(2)', mix: 'soft-light' },
+                { name: '豆沙', en: 'Bean', color: '#9d5b5b', filter: 'brightness(0.9) saturate(1.5)', mix: 'multiply' },
+                { name: '肉桂', en: 'Nude', color: '#a0522d', filter: 'sepia(0.6) saturate(1.2)', mix: 'multiply' }
             ]
         };
 
+        function closeNotice() { document.getElementById('notice-modal').style.display = 'none'; }
+
         async function requestCamera() {
-            const video = document.getElementById('webcam');
             document.getElementById('step-start').classList.add('hidden');
             document.getElementById('step-main').classList.remove('hidden');
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-                video.srcObject = stream;
-                document.getElementById('camera-loading').classList.add('hidden');
-            } catch (err) { alert("無法開啟鏡頭，請確認 HTTPS 與權限！"); }
+                document.getElementById('webcam').srcObject = stream;
+                document.getElementById('loading').style.display = 'none';
+                selectCate('底妝'); // 預設載入
+            } catch (e) { alert("請確保使用 HTTPS 並允許鏡頭存取"); }
         }
 
-        function selectCategory(cat) {
-            currentMode = cat;
-            const container = document.getElementById('camera-container');
-            container.className = 'camera-box aspect-video flex items-center justify-center shadow-xl';
+        function selectCate(cat) {
+            document.querySelectorAll('button[id^="btn-"]').forEach(b => b.classList.remove('active-cate'));
+            document.getElementById(`btn-${cat}`).classList.add('active-cate');
             
-            // UI 更新
-            document.querySelectorAll('button[id^="btn-"]').forEach(btn => btn.classList.remove('active-btn'));
-            const btnMap = {'底妝': 'btn-foundation', '眼妝': 'btn-eyemakeup', '唇妝': 'btn-lipstick'};
-            document.getElementById(btnMap[cat]).classList.add('active-btn');
-
-            // 生成產品選項
-            const items = document.getElementById('product-items');
-            items.innerHTML = '';
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
             products[cat].forEach(p => {
-                const div = document.createElement('div');
-                div.className = 'product-card';
-                div.innerHTML = `<div class="w-full h-8 mb-1 rounded" style="background:${p.color}"></div><span class="text-[10px]">${p.name}</span>`;
-                div.onclick = () => applyProduct(p);
-                items.appendChild(div);
+                const btn = document.createElement('div');
+                btn.className = 'product-item';
+                btn.innerHTML = `<div class="w-full h-8 rounded mb-1 shadow-inner" style="background:${p.color}"></div>
+                                <div class="text-[10px] font-bold">${p.name}</div>
+                                <div class="text-[8px] text-stone-400 uppercase">${p.en}</div>`;
+                btn.onclick = () => {
+                    document.querySelectorAll('.product-item').forEach(i => i.classList.remove('active-prod'));
+                    btn.classList.add('active-prod');
+                    applyMakeup(p);
+                };
+                grid.appendChild(btn);
             });
         }
 
-        function applyProduct(product) {
+        function applyMakeup(p) {
             const video = document.getElementById('webcam');
-            const overlay = document.getElementById('overlay');
-            const label = document.getElementById('current-label');
-
-            // 紀錄當前濾鏡參數給 Canvas 使用
-            currentFilter.filter = product.filter;
-            currentFilter.overlay = product.overlay || '';
-
-            // 直接應用 CSS
-            video.style.filter = `scaleX(-1) ${product.filter}`;
-            overlay.style.opacity = product.overlay ? '1' : '0';
-            overlay.style.background = product.overlay || 'transparent';
-            label.innerText = product.name;
-
-            // 觸發邊框閃爍提示已套用
-            const container = document.getElementById('camera-container');
-            container.style.borderColor = product.color;
-            setTimeout(() => { container.style.borderColor = '#f3f4f6'; }, 500);
+            const layer = document.getElementById('makeup-layer');
+            
+            activeData = p;
+            video.style.filter = `scaleX(-1) ${p.filter}`;
+            layer.style.opacity = '0.6';
+            layer.style.background = p.color;
+            layer.style.mixBlendMode = p.mix;
         }
 
         function goToCompare() {
             document.getElementById('step-main').classList.add('hidden');
             document.getElementById('step-compare').classList.remove('hidden');
-            const video = document.getElementById('webcam');
-            const cB = document.getElementById('canvas-before'), ctxB = cB.getContext('2d');
-            const cA = document.getElementById('canvas-after'), ctxA = cA.getContext('2d');
+            const v = document.getElementById('webcam');
+            const cB = document.getElementById('c-before'), ctxB = cB.getContext('2d');
+            const cA = document.getElementById('c-after'), ctxA = cA.getContext('2d');
 
-            ctxB.save(); ctxB.scale(-1, 1); ctxB.drawImage(video, -640, 0, 640, 480); ctxB.restore();
+            ctxB.save(); ctxB.scale(-1, 1); ctxB.drawImage(v, -640, 0, 640, 480); ctxB.restore();
             
             ctxA.save(); ctxA.scale(-1, 1);
-            if (currentFilter.filter) ctxA.filter = currentFilter.filter;
-            ctxA.drawImage(video, -640, 0, 640, 480);
+            if(activeData.filter) ctxA.filter = activeData.filter;
+            ctxA.drawImage(v, -640, 0, 640, 480);
             
-            if (currentFilter.overlay) {
-                ctxA.globalCompositeOperation = 'soft-light';
-                ctxA.fillStyle = currentFilter.overlay;
+            if(activeData.color) {
+                // 模擬遮罩貼合效果
+                const grad = ctxA.createRadialGradient(-320, 240, 50, -320, 240, 300);
+                grad.addColorStop(0, activeData.color);
+                grad.addColorStop(1, 'transparent');
+                ctxA.globalAlpha = 0.5;
+                ctxA.globalCompositeOperation = activeData.mix === 'multiply' ? 'multiply' : 'soft-light';
+                ctxA.fillStyle = grad;
                 ctxA.fillRect(-640, 0, 640, 480);
             }
             ctxA.restore();
