@@ -3,20 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>heme AI 虛擬試妝系統</title>
+    <title>heme AI 專業試妝系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --heme-stone: #a8a29e; --heme-dark: #292524; }
         .camera-box { background: #000; border-radius: 20px; position: relative; overflow: hidden; border: 2px solid #e7e5e4; }
         video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         
-        /* ✨ 關鍵：妝容貼合層 (不再是全螢幕換色) */
-        .makeup-overlay {
+        /* 👁️ 眼妝精細貼合層：只集中在眼周附近並暈染 */
+        .eye-makeup-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; opacity: 0; transition: all 0.5s ease;
-            /* 使用徑向漸層讓顏色集中在面部中心，邊緣淡出以達到自然貼合 */
-            mask-image: radial-gradient(circle at center, black 30%, transparent 70%);
-            -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 70%);
+            /* 關鍵：精細的徑向遮罩，讓顏色只集中在面部上半部（眼周） */
+            -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 15%, transparent 60%);
+            mask-image: radial-gradient(ellipse at 50% 40%, black 15%, transparent 60%);
+            mix-blend-mode: soft-light; /* 專業模式：融入皮膚纹理 */
+        }
+
+        /* 💄 唇妝精細貼合層：優化高光，保留嘴唇紋理 */
+        .lip-makeup-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; opacity: 0; transition: all 0.4s ease;
+            /* 關鍵：精細的徑向遮罩，讓顏色只集中在嘴唇位置 */
+            -webkit-mask-image: radial-gradient(ellipse at 50% 70%, black 5%, transparent 40%);
+            mask-image: radial-gradient(ellipse at 50% 70%, black 5%, transparent 40%);
+            mix-blend-mode: overlay; /* 專業模式：保留嘴唇高光，更擬真 */
         }
 
         .active-cate { @apply bg-stone-800 text-white shadow-lg scale-105; }
@@ -37,7 +48,7 @@
                 為確保妝容貼合度與色彩準確性，請確保您處於**光線充足**的環境，並**避免背光**。
             </p>
             <button onclick="closeNotice()" class="w-full bg-stone-800 text-white py-3 rounded-xl font-bold hover:bg-black transition">
-                我知道了 <span class="text-xs font-light opacity-70 ml-1">Confirm</span>
+                我知道了 Confirm
             </button>
         </div>
     </div>
@@ -55,7 +66,7 @@
             <h2 class="text-3xl font-light mb-2">探索妳的專屬本色</h2>
             <p class="text-stone-400 text-sm mb-10 tracking-widest">Discover Your True Shades</p>
             <button onclick="requestCamera()" class="bg-stone-800 text-white px-12 py-4 rounded-full shadow-xl hover:scale-105 transition-all font-bold">
-                立即體驗 <span class="text-xs font-light ml-2">Try It On</span>
+                立即體驗 Try It On
             </button>
         </div>
 
@@ -85,7 +96,8 @@
             <div class="lg:col-span-8 order-1 lg:order-2">
                 <div id="camera-container" class="camera-box aspect-[4/3] shadow-2xl">
                     <video id="webcam" autoplay playsinline></video>
-                    <div id="makeup-layer" class="makeup-overlay"></div>
+                    <div id="eye-layer" class="eye-makeup-overlay"></div>
+                    <div id="lip-layer" class="lip-makeup-overlay"></div>
                     <div id="loading" class="absolute inset-0 flex items-center justify-center bg-stone-50 text-stone-400">
                         鏡頭啟動中...
                     </div>
@@ -93,7 +105,7 @@
                 <div class="mt-4 flex justify-between">
                     <button onclick="location.reload()" class="text-stone-400 text-xs hover:text-stone-800">重置 Reset</button>
                     <button onclick="goToCompare()" class="bg-stone-800 text-white px-8 py-3 rounded-xl font-bold shadow-lg text-sm">
-                        查看對比 <span class="font-light ml-1 italic">Comparison</span>
+                        查看對比 Comparison
                     </button>
                 </div>
             </div>
@@ -116,25 +128,22 @@
 
     <script>
         let stream = null;
-        let activeData = { filter: '', color: '', mode: '' };
+        let activeMakeup = { mode: '', color: '', filter: '', en: '' };
 
         const products = {
             '底妝': [
-                { name: '01 柔白', en: 'Ivory', color: '#fcf3e8', filter: 'brightness(1.1) blur(1px)', mix: 'soft-light' },
-                { name: '02 自然', en: 'Beige', color: '#f5e1cc', filter: 'brightness(1.0) contrast(0.95) blur(0.8px)', mix: 'soft-light' },
-                { name: '03 裸膚', en: 'Sand', color: '#eccfb2', filter: 'brightness(0.95) contrast(0.9) blur(0.8px)', mix: 'soft-light' }
+                { name: '01 柔白', en: 'Ivory', color: '#fcf3e8', filter: 'brightness(1.05) contrast(0.95) blur(0.5px)' },
+                { name: '02 自然', en: 'Beige', color: '#f5e1cc', filter: 'brightness(0.98) contrast(0.98) blur(0.5px)' }
             ],
             '眼妝': [
-                { name: '焦糖', en: 'Caramel', color: '#8b4513', filter: 'sepia(0.5) contrast(1.1)', mix: 'multiply' },
-                { name: '玫瑰', en: 'Rose', color: '#bc8f8f', filter: 'sepia(0.3) saturate(1.5)', mix: 'multiply' },
-                { name: '藕粉', en: 'Mauve', color: '#a37c7c', filter: 'hue-rotate(-10deg) saturate(1.3)', mix: 'multiply' },
-                { name: '大地', en: 'Earth', color: '#634b35', filter: 'brightness(0.8) contrast(1.2)', mix: 'multiply' }
+                { name: '焦糖可可', en: 'Caramel', color: '#8b451366', filter: 'brightness(0.92)' }, /* 關鍵：半透明色彩 */
+                { name: '乾燥玫瑰', en: 'Rose', color: '#bc8f8f66', filter: 'hue-rotate(-15deg) saturate(1.2)' },
+                { name: '藕粉色', en: 'Mauve', color: '#a37c7c55', filter: 'saturate(1.2)' }
             ],
             '唇妝': [
-                { name: '紅酒', en: 'Wine', color: '#7f1d1d', filter: 'saturate(2)', mix: 'soft-light' },
-                { name: '珊瑚', en: 'Coral', color: '#c2410c', filter: 'hue-rotate(15deg) saturate(2)', mix: 'soft-light' },
-                { name: '豆沙', en: 'Bean', color: '#9d5b5b', filter: 'brightness(0.9) saturate(1.5)', mix: 'multiply' },
-                { name: '肉桂', en: 'Nude', color: '#a0522d', filter: 'sepia(0.6) saturate(1.2)', mix: 'multiply' }
+                { name: '紅酒色', en: 'Wine', color: '#7f1d1dcc', filter: '' }, /* 關鍵：唇部更鮮豔但保留紋理 */
+                { name: '珊瑚橘', en: 'Coral', color: '#c2410ccc', filter: '' },
+                { name: '豆沙色', en: 'Bean', color: '#9d5b5bcc', filter: '' }
             ]
         };
 
@@ -147,8 +156,8 @@
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
                 document.getElementById('webcam').srcObject = stream;
                 document.getElementById('loading').style.display = 'none';
-                selectCate('底妝'); // 預設載入
-            } catch (e) { alert("請確保使用 HTTPS 並允許鏡頭存取"); }
+                selectCate('底妝');
+            } catch (e) { alert("無法開啟鏡頭！"); }
         }
 
         function selectCate(cat) {
@@ -166,21 +175,36 @@
                 btn.onclick = () => {
                     document.querySelectorAll('.product-item').forEach(i => i.classList.remove('active-prod'));
                     btn.classList.add('active-prod');
-                    applyMakeup(p);
+                    applyFineMakeup(cat, p);
                 };
                 grid.appendChild(btn);
             });
         }
 
-        function applyMakeup(p) {
-            const video = document.getElementById('webcam');
-            const layer = document.getElementById('makeup-layer');
+        // 👁️ 精細妝容貼合邏輯
+        function applyFineMakeup(cat, p) {
+            const v = document.getElementById('webcam');
+            const eyeLayer = document.getElementById('eye-layer');
+            const lipLayer = document.getElementById('lip-layer');
             
-            activeData = p;
-            video.style.filter = `scaleX(-1) ${p.filter}`;
-            layer.style.opacity = '0.6';
-            layer.style.background = p.color;
-            layer.style.mixBlendMode = p.mix;
+            activeMakeup = { mode: cat, ...p };
+
+            // 1. 初始化所有圖層
+            eyeLayer.style.opacity = '0';
+            lipLayer.style.opacity = '0';
+            v.style.filter = `scaleX(-1)`; // 重設濾鏡
+
+            // 2. 基礎濾鏡 (底妝修飾)
+            if (p.filter) v.style.filter += ` ${p.filter}`;
+
+            // 3. 根據類別應用不同的遮罩與混合模式
+            if (cat === '眼妝') {
+                eyeLayer.style.opacity = '1';
+                eyeLayer.style.background = p.color; // 應用眼影色（已調成半透明）
+            } else if (cat === '唇妝') {
+                lipLayer.style.opacity = '1';
+                lipLayer.style.background = p.color; // 應用唇膏色（保留高光模式）
+            }
         }
 
         function goToCompare() {
@@ -193,16 +217,24 @@
             ctxB.save(); ctxB.scale(-1, 1); ctxB.drawImage(v, -640, 0, 640, 480); ctxB.restore();
             
             ctxA.save(); ctxA.scale(-1, 1);
-            if(activeData.filter) ctxA.filter = activeData.filter;
+            if(activeMakeup.filter) ctxA.filter = activeMakeup.filter;
             ctxA.drawImage(v, -640, 0, 640, 480);
             
-            if(activeData.color) {
-                // 模擬遮罩貼合效果
-                const grad = ctxA.createRadialGradient(-320, 240, 50, -320, 240, 300);
-                grad.addColorStop(0, activeData.color);
+            if(activeMakeup.color) {
+                // 在 Canvas 上模擬精細遮罩
+                const cMap = { '眼妝': eye-layer, '唇妝': lip-layer };
+                const modeMap = { '眼妝': 'soft-light', '唇妝': 'overlay' };
+                
+                // 模擬徑向暈染
+                let grad;
+                if(activeMakeup.mode === '眼妝') grad = ctxA.createRadialGradient(-320, 192, 50, -320, 192, 300); // 眼周位置 (ellipse 50% 40%)
+                else grad = ctxA.createRadialGradient(-320, 336, 30, -320, 336, 150); // 嘴唇位置 (ellipse 50% 70%)
+
+                grad.addColorStop(0, activeMakeup.color);
                 grad.addColorStop(1, 'transparent');
-                ctxA.globalAlpha = 0.5;
-                ctxA.globalCompositeOperation = activeData.mix === 'multiply' ? 'multiply' : 'soft-light';
+                
+                ctxA.globalCompositeOperation = modeMap[activeMakeup.mode] || 'normal';
+                ctxA.globalAlpha = 1; 
                 ctxA.fillStyle = grad;
                 ctxA.fillRect(-640, 0, 640, 480);
             }
