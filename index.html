@@ -7,23 +7,25 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/face_landmarker.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --heme-stone: #a8a29e; }
         .camera-box { background: #000; border-radius: 20px; position: relative; overflow: hidden; border: 2px solid #e7e5e4; }
         video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transform: scaleX(-1); }
         .active-cate { @apply bg-stone-800 text-white shadow-lg; }
         .product-item { @apply border border-stone-200 p-2 rounded-lg text-center cursor-pointer bg-white transition shadow-sm; }
         .active-prod { @apply border-stone-800 ring-2 ring-stone-100 bg-stone-50; }
-        .recommend-tag { @apply absolute -top-2 -right-1 bg-amber-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold; }
+        .recommend-tag { @apply absolute -top-2 -right-1 bg-amber-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold animate-pulse; }
     </style>
 </head>
-<body class="bg-[#fcfaf8] min-h-screen text-stone-800">
+<body class="bg-[#fcfaf8] min-h-screen text-stone-800 font-sans">
 
-    <div id="step-start" class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white p-12 rounded-3xl shadow-xl text-center max-w-sm w-full border border-stone-100">
-            <h1 class="text-2xl font-bold tracking-widest mb-2">虛擬試妝體驗</h1>
-            <p class="text-stone-400 text-xs mb-8 tracking-widest uppercase font-light">Virtual Makeup Experience</p>
-            <button onclick="requestCamera()" class="w-full bg-stone-800 text-white py-4 rounded-full font-bold hover:scale-105 transition shadow-lg">立即體驗 Try It On</button>
+    <div id="step-start" class="flex items-center justify-center min-h-screen p-4 bg-gray-100">
+        <div class="bg-white p-12 rounded-3xl shadow-2xl text-center max-w-md w-full border border-stone-100">
+            <h1 class="text-3xl font-light mb-2 tracking-widest">探索妳的專屬本色</h1>
+            <p class="text-stone-400 text-sm mb-10 tracking-widest uppercase">Discover Your True Shades</p>
+            <button id="start-btn" onclick="requestCamera()" class="bg-stone-800 text-white px-16 py-4 rounded-full font-bold hover:scale-105 transition shadow-2xl">
+                立即體驗 Try It On
+            </button>
+            <p id="init-msg" class="text-[10px] text-stone-300 mt-4 italic">模型預熱中，請稍候...</p>
         </div>
     </div>
 
@@ -32,108 +34,138 @@
             <div class="lg:col-span-4 space-y-4">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
                     <div id="ai-recom-box" class="mb-6 p-4 bg-amber-50 rounded-xl border-l-4 border-amber-400">
-                        <p id="recom-text" class="text-xs font-bold text-amber-800 leading-relaxed">正在掃描五官特徵...</p>
+                        <h4 class="text-[10px] font-bold text-amber-600 uppercase mb-1">AI Smart Recommendation</h4>
+                        <p id="recom-text" class="text-xs font-bold text-stone-700">正在分析您的五官特徵...</p>
                     </div>
 
-                    <h3 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">1. 選擇類別</h3>
-                    <div class="grid grid-cols-3 gap-2 mb-6">
-                        <button id="btn-底妝" onclick="selectCate('底妝')" class="py-2.5 text-xs border rounded-xl transition">底妝</button>
-                        <button id="btn-眼妝" onclick="selectCate('眼妝')" class="py-2.5 text-xs border rounded-xl transition">眼妝</button>
-                        <button id="btn-唇妝" onclick="selectCate('唇妝')" class="py-2.5 text-xs border rounded-xl transition">唇妝</button>
+                    <h3 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">1. 選擇類別 Category</h3>
+                    <div class="grid grid-cols-3 gap-2 mb-8">
+                        <button id="btn-底妝" onclick="selectCate('底妝')" class="py-3 text-xs border rounded-xl transition">底妝</button>
+                        <button id="btn-眼妝" onclick="selectCate('眼妝')" class="py-3 text-xs border rounded-xl transition">眼妝</button>
+                        <button id="btn-唇妝" onclick="selectCate('唇妝')" class="py-3 text-xs border rounded-xl transition">唇妝</button>
                     </div>
 
-                    <h3 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">2. 選擇色號</h3>
-                    <div id="product-grid" class="grid grid-cols-3 gap-3"></div>
+                    <h3 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">2. 選擇色號 Shade</h3>
+                    <div id="product-grid" class="grid grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2"></div>
                 </div>
             </div>
 
             <div class="lg:col-span-8">
-                <div class="camera-box aspect-[4/3]">
+                <div class="camera-box aspect-[4/3] shadow-2xl">
                     <video id="webcam" autoplay playsinline></video>
                     <canvas id="output_canvas"></canvas>
-                    <div id="loading" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-20">
-                        <div class="w-8 h-8 border-4 border-stone-200 border-t-stone-800 rounded-full animate-spin mb-2"></div>
-                        <span class="text-xs text-stone-400">AI 五官追蹤啟動中...</span>
+                    <div id="loading-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-20">
+                        <div class="w-10 h-10 border-4 border-stone-100 border-t-stone-800 rounded-full animate-spin mb-4"></div>
+                        <p class="text-sm text-stone-400">AI 五官偵測啟動中...</p>
                     </div>
                 </div>
-                <div class="mt-4 flex justify-between">
-                    <button onclick="location.reload()" class="text-xs text-stone-400 underline">重置</button>
-                    <button onclick="goToCompare()" class="bg-stone-800 text-white px-8 py-2 rounded-lg text-sm font-bold">查看對比</button>
+                <div class="mt-4 flex justify-between items-center px-2">
+                    <button onclick="location.reload()" class="text-stone-300 text-xs hover:text-stone-800 underline">重置 Reset</button>
+                    <button onclick="goToCompare()" class="bg-stone-800 text-white px-10 py-3 rounded-xl font-bold text-sm shadow-lg">查看對比 Comparison</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="step-compare" class="hidden fixed inset-0 bg-white z-50 p-6 overflow-y-auto">
-        <div class="max-w-4xl mx-auto text-center">
-            <h2 class="text-xl font-bold mb-8 tracking-widest">試妝成果對比</h2>
-            <div class="grid grid-cols-2 gap-4 mb-8">
-                <canvas id="c-before" class="w-full rounded-xl shadow-lg" width="640" height="480"></canvas>
-                <canvas id="c-after" class="w-full rounded-xl shadow-lg" width="640" height="480"></canvas>
+    <div id="step-compare" class="hidden fixed inset-0 bg-white z-50 p-6 flex flex-col items-center overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-8 tracking-[0.2em]">試妝成果對比</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl mb-10">
+            <div class="space-y-2">
+                <p class="text-center text-[10px] text-stone-400 uppercase">Original</p>
+                <canvas id="c-before" class="w-full rounded-2xl shadow-lg" width="640" height="480"></canvas>
             </div>
-            <button onclick="location.reload()" class="bg-stone-800 text-white px-12 py-3 rounded-full">返回體驗</button>
+            <div class="space-y-2">
+                <p class="text-center text-[10px] text-stone-800 font-bold uppercase">AI Enhanced</p>
+                <canvas id="c-after" class="w-full rounded-2xl shadow-lg" width="640" height="480"></canvas>
+            </div>
         </div>
+        <button onclick="document.getElementById('step-compare').classList.add('hidden')" class="bg-stone-100 text-stone-600 px-12 py-3 rounded-full font-bold">返回 Back</button>
     </div>
 
     <script type="module">
         import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0";
 
         let faceLandmarker;
+        let webcamRunning = false;
         const video = document.getElementById("webcam");
         const canvasElement = document.getElementById("output_canvas");
         const canvasCtx = canvasElement.getContext("2d");
-        let activeMakeup = { mode: '', color: 'rgba(0,0,0,0)', mix: 'multiply' };
+        let activeMakeup = { mode: '', color: 'rgba(0,0,0,0)', mix: 'multiply', rec: '' };
 
         const products = {
             '底妝': [
-                { name: '01 柔白', color: 'rgba(252, 243, 232, 0.3)', mix: 'soft-light', rec: 'fair' },
-                { name: '02 自然', color: 'rgba(245, 225, 204, 0.3)', mix: 'soft-light', rec: 'medium' }
+                { name: '柔白', color: 'rgba(252, 243, 232, 0.3)', mix: 'soft-light', rec: 'fair' },
+                { name: '自然', color: 'rgba(245, 225, 204, 0.3)', mix: 'soft-light', rec: 'medium' }
             ],
             '眼妝': [
                 { name: '焦糖', color: 'rgba(139, 69, 19, 0.4)', mix: 'multiply', rec: 'medium' },
                 { name: '玫瑰', color: 'rgba(188, 143, 143, 0.4)', mix: 'multiply', rec: 'fair' }
             ],
             '唇妝': [
-                { name: '經典紅', color: 'rgba(153, 27, 27, 0.5)', mix: 'soft-light', rec: 'medium' },
+                { name: '紅酒', color: 'rgba(153, 27, 27, 0.5)', mix: 'soft-light', rec: 'medium' },
                 { name: '豆沙', color: 'rgba(157, 91, 91, 0.6)', mix: 'multiply', rec: 'fair' }
             ]
         };
 
-        async function initAI() {
-            const filesetResolver = await FilesetResolver.forTasks("https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-                baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
-                runningMode: "VIDEO", numFaces: 1
-            });
+        // 💡 預載模型，防止點擊沒反應
+        async function preinit() {
+            try {
+                const filesetResolver = await FilesetResolver.forTasks("https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/wasm");
+                faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+                    baseOptions: { 
+                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                        delegate: "GPU" 
+                    },
+                    runningMode: "VIDEO", numFaces: 1
+                });
+                document.getElementById('init-msg').innerText = "系統已就緒";
+            } catch (e) {
+                document.getElementById('init-msg').innerText = "模型載入失敗，請檢查網路。";
+                console.error(e);
+            }
         }
+        preinit();
 
         window.requestCamera = async () => {
+            if (!faceLandmarker) {
+                alert("AI 模型尚未載入完成，請稍候幾秒再試一次。");
+                return;
+            }
             document.getElementById('step-start').classList.add('hidden');
             document.getElementById('step-main').classList.remove('hidden');
-            await initAI();
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-            video.onloadeddata = () => {
-                document.getElementById('loading').style.display = 'none';
-                canvasElement.width = video.videoWidth;
-                canvasElement.height = video.videoHeight;
-                predictLoop();
-                window.selectCate('底妝');
-            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                video.onloadeddata = () => {
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    canvasElement.width = video.videoWidth;
+                    canvasElement.height = video.videoHeight;
+                    webcamRunning = true;
+                    predictLoop();
+                    window.selectCate('底妝');
+                };
+            } catch (err) {
+                alert("無法存取鏡頭，請確認是否已開啟鏡頭權限並使用 HTTPS 連線。");
+            }
         };
 
         function predictLoop() {
+            if (!webcamRunning) return;
             const results = faceLandmarker.detectForVideo(video, performance.now());
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
             if (results.faceLandmarks && results.faceLandmarks.length > 0) {
                 const pts = results.faceLandmarks[0];
-                const skin = pts[10].z < -0.04 ? 'fair' : 'medium';
-                document.getElementById('recom-text').innerText = skin === 'fair' ? "✨ AI 建議：膚色白皙，適合粉嫩色系展現氣色。" : "🌿 AI 建議：膚色健康，適合大地色系深邃五官。";
+                
+                // AI 推薦邏輯
+                const isFair = pts[10].z < -0.045; 
+                document.getElementById('recom-text').innerText = isFair ? "✨ AI 偵測：膚色偏亮，推薦 heme【乾燥玫瑰】系列。" : "🌿 AI 偵測：膚色健康，推薦 heme【焦糖拿鐵】系列。";
+                window.currentSkin = isFair ? 'fair' : 'medium';
 
                 if (activeMakeup.mode === '眼妝') {
-                    drawPath(canvasCtx, pts, [33, 160, 158, 133, 153, 144], activeMakeup.color);
-                    drawPath(canvasCtx, pts, [362, 385, 387, 263, 373, 380], activeMakeup.color);
+                    drawPath(canvasCtx, pts, [33, 160, 158, 133, 153, 144], activeMakeup.color); // 左
+                    drawPath(canvasCtx, pts, [362, 385, 387, 263, 373, 380], activeMakeup.color); // 右
                 } else if (activeMakeup.mode === '唇妝') {
                     drawPath(canvasCtx, pts, [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291], activeMakeup.color);
                 }
@@ -142,7 +174,9 @@
         }
 
         function drawPath(ctx, pts, indices, color) {
-            ctx.beginPath(); ctx.fillStyle = color; ctx.globalCompositeOperation = activeMakeup.mix;
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.globalCompositeOperation = activeMakeup.mix;
             indices.forEach((idx, i) => {
                 const x = pts[idx].x * canvasElement.width;
                 const y = pts[idx].y * canvasElement.height;
@@ -156,15 +190,22 @@
             document.getElementById(`btn-${cat}`).classList.add('active-cate');
             const grid = document.getElementById('product-grid');
             grid.innerHTML = '';
+            
             products[cat].forEach(p => {
                 const div = document.createElement('div');
                 div.className = 'product-item relative';
-                div.innerHTML = `<div class="w-full h-8 rounded mb-1" style="background:${p.color}"></div><div class="text-[10px]">${p.name}</div>`;
+                const isRec = p.rec === window.currentSkin;
+                div.innerHTML = `
+                    ${isRec ? '<div class="recommend-tag">AI 推薦</div>' : ''}
+                    <div class="w-full h-8 rounded mb-1 shadow-inner" style="background:${p.color}"></div>
+                    <div class="text-[10px] font-bold">${p.name}</div>
+                `;
                 div.onclick = () => {
                     activeMakeup = { mode: cat, ...p };
                     document.querySelectorAll('.product-item').forEach(i => i.classList.remove('active-prod'));
                     div.classList.add('active-prod');
-                    if(cat==='底妝') video.style.filter = 'scaleX(-1) brightness(1.05)'; else video.style.filter = 'scaleX(-1)';
+                    if(cat==='底妝') video.style.filter = 'scaleX(-1) brightness(1.08) contrast(0.95)';
+                    else video.style.filter = 'scaleX(-1)';
                 };
                 grid.appendChild(div);
             });
@@ -174,8 +215,11 @@
             document.getElementById('step-compare').classList.remove('hidden');
             const bCtx = document.getElementById('c-before').getContext('2d');
             const aCtx = document.getElementById('c-after').getContext('2d');
+            // 繪製對比圖
             bCtx.save(); bCtx.scale(-1, 1); bCtx.drawImage(video, -640, 0, 640, 480); bCtx.restore();
-            aCtx.save(); aCtx.scale(-1, 1); aCtx.drawImage(video, -640, 0, 640, 480); aCtx.restore();
+            aCtx.save(); aCtx.scale(-1, 1); 
+            if(activeMakeup.mode === '底妝') aCtx.filter = 'brightness(1.08)';
+            aCtx.drawImage(video, -640, 0, 640, 480); aCtx.restore();
         };
     </script>
 </body>
