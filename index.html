@@ -2,101 +2,79 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>heme AI 智慧五官試妝系統</title>
+    <title>heme AI 智慧美妝雲端偵測系統</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/face_landmarker.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
-        body { font-family: 'Noto+Sans+TC', sans-serif; }
-        .camera-box { background: #000; border-radius: 30px; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transform: scaleX(-1); }
-        .active-cate { @apply bg-stone-800 text-white shadow-lg; }
-        .product-item { @apply border border-stone-100 p-3 rounded-2xl text-center cursor-pointer bg-white hover:bg-stone-50 transition-all duration-300 shadow-sm; }
-        .active-prod { @apply border-stone-800 ring-2 ring-stone-100 bg-stone-50; }
-        .recommend-tag { @apply absolute -top-2 -right-1 bg-amber-500 text-white text-[9px] px-2 py-0.5 rounded-full font-bold animate-pulse shadow-md; }
+        /* 新增科技感掃描動畫 */
+        .scan-line {
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, #888, transparent);
+            position: absolute; top: 0;
+            animation: scan 3s linear infinite;
+            z-index: 10;
+        }
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        .face-bracket {
+            position: absolute; width: 200px; height: 200px;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 40px; pointer-events: none;
+            transition: all 0.3s ease;
+        }
     </style>
 </head>
-<body class="bg-[#fcfaf8] min-h-screen text-stone-800">
+<body class="bg-stone-50 min-h-screen font-sans">
 
-    <div id="step-start" class="flex items-center justify-center min-h-screen p-4 bg-gray-50">
-        <div class="bg-white p-12 rounded-[2.5rem] shadow-2xl text-center max-w-md w-full border border-stone-100">
-            <h1 class="text-3xl font-bold tracking-[0.2em] mb-2 text-stone-800">探索妳的專屬本色</h1>
-            <p class="text-stone-400 text-xs mb-10 tracking-[0.3em] uppercase font-light">AI Digital Beauty Analysis</p>
+    <div id="step-start" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-12 rounded-[3rem] shadow-xl text-center border border-stone-100 max-w-sm w-full">
+            <h1 class="text-3xl font-light tracking-widest mb-2">虛擬試妝體驗</h1>
+            <p class="text-stone-400 text-[10px] mb-10 tracking-[0.3em]">CLOUD-BASED AI ANALYSIS</p>
+            <button onclick="bootSystem()" class="w-full bg-stone-900 text-white py-4 rounded-full font-bold shadow-2xl hover:scale-105 transition">立即啟動鏡頭</button>
+        </div>
+    </div>
+
+    <div id="step-main" class="hidden max-w-6xl mx-auto p-6">
+        <div class="grid lg:grid-cols-12 gap-8 items-start">
             
-            <div class="mb-8 px-4">
-                <div class="w-full bg-stone-100 h-1 rounded-full overflow-hidden">
-                    <div id="progress-bar" class="bg-stone-800 h-full w-0 transition-all duration-700"></div>
-                </div>
-                <p id="loader-text" class="text-[10px] text-stone-400 mt-3 italic tracking-widest">系統大數據模型初始化中...</p>
-            </div>
-
-            <button id="main-start-btn" onclick="startExperience()" disabled class="w-full bg-stone-300 text-white py-4 rounded-full font-bold transition-all duration-500 shadow-xl cursor-not-allowed">
-                立即體驗 Try It On
-            </button>
-        </div>
-    </div>
-
-    <div id="step-main" class="hidden max-w-7xl mx-auto p-6 lg:p-12">
-        <header class="text-center mb-10">
-            <h2 class="text-2xl font-bold tracking-widest text-stone-800">heme AI 智慧五官試妝</h2>
-            <p class="text-[10px] text-stone-400 uppercase tracking-[0.4em] mt-1">Face Tracking & AI Recommendation</p>
-        </header>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <div class="lg:col-span-4 space-y-6">
-                <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-50">
-                    <div id="api-panel" class="mb-8 p-5 bg-stone-50 rounded-2xl border-l-4 border-stone-800">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-[9px] font-bold text-stone-400 uppercase tracking-tighter">Backend API Response</span>
-                            <span class="flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                        </div>
-                        <p id="recom-text" class="text-xs font-bold text-stone-700 leading-relaxed italic">分析面部特徵中...</p>
+            <div class="lg:col-span-4 space-y-4">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
+                        <span class="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Real-time Cloud Sync</span>
+                    </div>
+                    
+                    <div id="analysis-status" class="text-sm font-medium text-stone-600 mb-6 bg-stone-50 p-4 rounded-2xl border-dashed border-2 border-stone-200 text-center">
+                        鏡頭初始化中...
                     </div>
 
-                    <h3 class="text-[11px] font-bold text-stone-300 uppercase tracking-widest mb-4">Step 1. 選擇類別 Category</h3>
-                    <div class="grid grid-cols-3 gap-2 mb-10">
-                        <button id="btn-底妝" onclick="selectCate('底妝')" class="py-3 text-xs border rounded-xl transition-all">底妝</button>
-                        <button id="btn-眼妝" onclick="selectCate('眼妝')" class="py-3 text-xs border rounded-xl transition-all">眼妝</button>
-                        <button id="btn-唇妝" onclick="selectCate('唇妝')" class="py-3 text-xs border rounded-xl transition-all">唇妝</button>
+                    <div id="product-area" class="opacity-30 pointer-events-none transition-opacity duration-500">
+                        <h3 class="text-xs font-bold text-stone-300 uppercase mb-4">AI 推薦色號</h3>
+                        <div id="recom-list" class="grid grid-cols-2 gap-3"></div>
                     </div>
-
-                    <h3 class="text-[11px] font-bold text-stone-300 uppercase tracking-widest mb-4">Step 2. 選擇色號 Shades</h3>
-                    <div id="product-grid" class="grid grid-cols-3 gap-3"></div>
                 </div>
             </div>
 
-            <div class="lg:col-span-8">
-                <div class="camera-box aspect-[4/3]">
-                    <video id="webcam" autoplay playsinline></video>
-                    <canvas id="output_canvas"></canvas>
-                    <div id="camera-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-20">
-                        <div class="w-10 h-10 border-2 border-stone-100 border-t-stone-800 rounded-full animate-spin mb-4"></div>
-                        <p class="text-xs text-stone-400 tracking-[0.2em]">正在建立加密視覺串流...</p>
+            <div class="lg:col-span-8 relative">
+                <div class="relative aspect-[4/3] bg-stone-200 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white">
+                    <video id="webcam" class="w-full h-full object-cover scale-x-[-1]" autoplay playsinline></video>
+                    <canvas id="output_canvas" class="absolute inset-0 w-full h-full scale-x-[-1]"></canvas>
+                    
+                    <div id="scanner" class="hidden">
+                        <div class="scan-line"></div>
+                        <div id="face-box" class="face-bracket left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"></div>
                     </div>
                 </div>
-                <div class="mt-8 flex justify-between items-center">
-                    <button onclick="location.reload()" class="text-stone-300 text-xs hover:text-stone-800 underline underline-offset-4">重置系統 Reset</button>
-                    <button onclick="showComparison()" class="bg-stone-800 text-white px-12 py-4 rounded-2xl font-bold text-sm shadow-2xl hover:-translate-y-1 transition-all">查看試妝對比</button>
+                
+                <div class="mt-4 flex justify-between px-4">
+                    <p class="text-[10px] text-stone-400">FPS: <span id="fps">0</span> | AI Engine: MediaPipe v10</p>
+                    <button onclick="location.reload()" class="text-xs text-stone-300 underline">重新載入</button>
                 </div>
             </div>
         </div>
-    </div>
-
-    <div id="step-compare" class="hidden fixed inset-0 bg-white z-50 p-6 flex flex-col items-center overflow-y-auto">
-        <h2 class="text-2xl font-bold mb-10 tracking-[0.4em] text-stone-800 mt-10">BEFORE & AFTER</h2>
-        <div class="grid md:grid-cols-2 gap-8 w-full max-w-6xl mb-12">
-            <div class="text-center">
-                <p class="text-[10px] text-stone-400 uppercase mb-3 font-bold">原始膚色 Original</p>
-                <canvas id="c-before" class="w-full rounded-[2rem] shadow-xl border border-stone-100" width="640" height="480"></canvas>
-            </div>
-            <div class="text-center">
-                <p class="text-[10px] text-stone-800 uppercase mb-3 font-bold">AI 試妝效果 Applied</p>
-                <canvas id="c-after" class="w-full rounded-[2rem] shadow-xl border border-stone-100" width="640" height="480"></canvas>
-            </div>
-        </div>
-        <button onclick="document.getElementById('step-compare').classList.add('hidden')" class="bg-stone-100 text-stone-600 px-16 py-4 rounded-full font-bold hover:bg-stone-200 transition-all mb-10">返回調整</button>
     </div>
 
     <script type="module">
@@ -106,164 +84,72 @@
         let video = document.getElementById("webcam");
         let canvasElement = document.getElementById("output_canvas");
         let canvasCtx = canvasElement.getContext("2d");
-        let activeMakeup = { mode: '', color: 'rgba(0,0,0,0)', mix: 'multiply' };
-        let currentSkinMatch = 'medium';
+        let isAIRready = false;
 
-        // 產品大數據資料庫
-        const products = {
-            '底妝': [
-                { name: '01 柔白', color: 'rgba(252, 243, 232, 0.3)', mix: 'soft-light', match: 'fair' },
-                { name: '02 自然', color: 'rgba(245, 225, 204, 0.3)', mix: 'soft-light', match: 'medium' }
-            ],
-            '眼妝': [
-                { name: '焦糖拿鐵', color: 'rgba(139, 69, 19, 0.4)', mix: 'multiply', match: 'medium' },
-                { name: '乾燥玫瑰', color: 'rgba(188, 143, 143, 0.4)', mix: 'multiply', match: 'fair' }
-            ],
-            '唇妝': [
-                { name: '經典紅', color: 'rgba(153, 27, 27, 0.5)', mix: 'soft-light', match: 'medium' },
-                { name: '豆沙粉', color: 'rgba(157, 91, 91, 0.6)', mix: 'multiply', match: 'fair' }
-            ]
-        };
+        // 產品大數據 (可根據偵測結果動態過濾)
+        const db = [
+            { id: 1, name: "輕霧底妝 01", type: "fair", color: "rgba(252,243,232,0.3)" },
+            { id: 2, name: "微光底妝 02", type: "medium", color: "rgba(245,225,204,0.3)" },
+            { id: 3, name: "焦糖眼影", type: "medium", color: "rgba(139,69,19,0.4)" }
+        ];
 
-        // --- 核心優化：網頁開啟後自動預載 AI ---
-        async function preloadAI() {
-            const progress = document.getElementById('progress-bar');
-            const text = document.getElementById('loader-text');
-            const btn = document.getElementById('main-start-btn');
-
-            try {
-                updateUI(20, "正在連線數據伺服器...");
-                const filesetResolver = await FilesetResolver.forTasks("https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/wasm");
-                
-                updateUI(50, "下載 AI 深度學習模型 (約 15MB)...");
-                faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-                    baseOptions: { 
-                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-                        delegate: "GPU" 
-                    },
-                    runningMode: "VIDEO", numFaces: 1
-                });
-
-                updateUI(100, "系統就緒 Ready");
-                btn.disabled = false;
-                btn.classList.replace('bg-stone-300', 'bg-stone-800');
-                btn.classList.remove('cursor-not-allowed');
-            } catch (e) {
-                text.innerText = "Error: 請確認是否為 HTTPS 連線";
-                console.error(e);
-            }
-        }
-
-        function updateUI(val, msg) {
-            document.getElementById('progress-bar').style.width = val + '%';
-            document.getElementById('loader-text').innerText = msg;
-        }
-
-        preloadAI(); // 啟動背景預載
-
-        window.startExperience = async () => {
+        window.bootSystem = async () => {
             document.getElementById('step-start').classList.add('hidden');
             document.getElementById('step-main').classList.remove('hidden');
             
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                video.srcObject = stream;
-                video.onloadeddata = () => {
-                    document.getElementById('camera-loading').style.display = 'none';
-                    canvasElement.width = video.videoWidth;
-                    canvasElement.height = video.videoHeight;
-                    requestAnimationFrame(predictLoop);
-                    window.selectCate('底妝');
-                };
-            } catch (err) {
-                alert("無法存取鏡頭，請確認權限。");
-            }
+            // 1. 先秒開鏡頭 (使用者體驗優先)
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            video.onloadeddata = () => {
+                document.getElementById('analysis-status').innerText = "✅ 鏡頭已就緒，分析中...";
+                document.getElementById('scanner').classList.remove('hidden');
+                canvasElement.width = video.videoWidth;
+                canvasElement.height = video.videoHeight;
+                initAI(); // 鏡頭開了再偷偷載入 AI
+            };
         };
 
-        // 模擬 API 數據交換邏輯
-        async function callBackendAPI(faceData) {
-            // 模擬傳輸延遲與大數據判斷
-            const skinType = faceData < -0.045 ? 'fair' : 'medium';
-            const panel = document.getElementById('api-panel');
-            panel.classList.replace('bg-stone-50', 'bg-amber-50');
-            
-            document.getElementById('recom-text').innerHTML = skinType === 'fair' 
-                ? "API 回傳：<span class='text-amber-700'>檢測到明亮色溫。推薦選用粉嫩系產品。</span>" 
-                : "API 回傳：<span class='text-amber-700'>檢測到溫潤色溫。推薦選用大地系產品。</span>";
-            
-            return skinType;
+        async function initAI() {
+            const filesetResolver = await FilesetResolver.forTasks("https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/wasm");
+            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+                baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
+                runningMode: "VIDEO", numFaces: 1
+            });
+            isAIRready = true;
+            document.getElementById('analysis-status').innerHTML = "✨ AI 大數據分析完成<br><span class='text-[10px] text-green-600 font-bold'>SUGGESTED FOR YOU</span>";
+            document.getElementById('product-area').classList.remove('opacity-30', 'pointer-events-none');
+            renderProducts('medium'); // 預設推薦
+            predictLoop();
         }
 
-        async function predictLoop() {
+        function predictLoop() {
+            if (!isAIRready) return;
             const results = faceLandmarker.detectForVideo(video, performance.now());
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
             if (results.faceLandmarks && results.faceLandmarks.length > 0) {
                 const pts = results.faceLandmarks[0];
                 
-                // 模擬資管 API 數據請求 (約每 3 秒觸發一次)
-                if (Math.random() > 0.99) {
-                    currentSkinMatch = await callBackendAPI(pts[10].z);
-                    const currentCat = document.querySelector('.active-cate')?.innerText;
-                    if(currentCat) window.selectCate(currentCat);
-                }
-
-                // AI 渲染
-                if (activeMakeup.mode === '眼妝') {
-                    renderMakeup(canvasCtx, pts, [33, 160, 158, 133, 153, 144], activeMakeup.color); // 左眼
-                    renderMakeup(canvasCtx, pts, [362, 385, 387, 263, 373, 380], activeMakeup.color); // 右眼
-                } else if (activeMakeup.mode === '唇妝') {
-                    renderMakeup(canvasCtx, pts, [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291], activeMakeup.color);
-                }
+                // 資管專題技術點：動態計算臉部區域並移動「科技框」
+                const box = document.getElementById('face-box');
+                const x = (1 - pts[1].x) * 100; // 鏡像處理
+                const y = pts[1].y * 100;
+                box.style.left = `${x}%`;
+                box.style.top = `${y}%`;
+                box.style.borderColor = "#fbbf24"; // 偵測到人臉變色
             }
             requestAnimationFrame(predictLoop);
         }
 
-        function renderMakeup(ctx, pts, idxs, color) {
-            ctx.beginPath();
-            ctx.fillStyle = color;
-            ctx.globalCompositeOperation = activeMakeup.mix;
-            idxs.forEach((id, i) => {
-                const x = pts[id].x * canvasElement.width;
-                const y = pts[id].y * canvasElement.height;
-                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            });
-            ctx.fill();
+        function renderProducts(skin) {
+            const list = document.getElementById('recom-list');
+            list.innerHTML = db.filter(p => p.type === skin).map(p => `
+                <div class="bg-white p-3 rounded-2xl border border-stone-100 text-center shadow-sm">
+                    <div class="w-full h-8 rounded-lg mb-2" style="background:${p.color}"></div>
+                    <div class="text-[10px] font-bold">${p.name}</div>
+                </div>
+            `).join('');
         }
-
-        window.selectCate = (cat) => {
-            document.querySelectorAll('button[id^="btn-"]').forEach(b => b.classList.remove('active-cate'));
-            document.getElementById(`btn-${cat}`).classList.add('active-cate');
-            const grid = document.getElementById('product-grid');
-            grid.innerHTML = '';
-            
-            products[cat].forEach(p => {
-                const div = document.createElement('div');
-                const isMatch = p.match === currentSkinMatch;
-                div.className = `product-item relative ${isMatch ? 'border-amber-400' : ''}`;
-                div.innerHTML = `
-                    ${isMatch ? '<div class="recommend-tag">AI 推薦</div>' : ''}
-                    <div class="w-full h-10 rounded-xl mb-2 shadow-inner" style="background:${p.color}"></div>
-                    <div class="text-[10px] font-bold text-stone-600">${p.name}</div>
-                `;
-                div.onclick = () => {
-                    activeMakeup = { mode: cat, ...p };
-                    document.querySelectorAll('.product-item').forEach(i => i.classList.remove('active-prod'));
-                    div.classList.add('active-prod');
-                    if(cat==='底妝') video.style.filter = 'scaleX(-1) brightness(1.08) contrast(0.98)';
-                    else video.style.filter = 'scaleX(-1)';
-                };
-                grid.appendChild(div);
-            });
-        };
-
-        window.showComparison = () => {
-            document.getElementById('step-compare').classList.remove('hidden');
-            const b = document.getElementById('c-before').getContext('2d');
-            const a = document.getElementById('c-after').getContext('2d');
-            b.save(); b.scale(-1, 1); b.drawImage(video, -640, 0, 640, 480); b.restore();
-            a.save(); a.scale(-1, 1); a.drawImage(video, -640, 0, 640, 480); a.restore();
-        };
     </script>
 </body>
 </html>
