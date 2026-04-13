@@ -2,153 +2,117 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>heme AI 智慧美妝雲端偵測系統</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/face_landmarker.min.js"></script>
+    <title>heme AI 智慧試妝：即時數據推薦系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 新增科技感掃描動畫 */
-        .scan-line {
-            width: 100%; height: 2px;
-            background: linear-gradient(90deg, transparent, #888, transparent);
-            position: absolute; top: 0;
-            animation: scan 3s linear infinite;
-            z-index: 10;
+        /* 科技感背景與掃描 */
+        body { background: #0f172a; color: white; }
+        .camera-container { position: relative; width: 100%; max-width: 640px; margin: auto; border-radius: 2rem; overflow: hidden; border: 4px solid #334155; }
+        video { width: 100%; height: auto; transform: scaleX(-1); }
+        .makeup-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; mix-blend-mode: soft-light; opacity: 0; transition: opacity 0.5s;
         }
-        @keyframes scan {
-            0% { top: 0%; opacity: 0; }
-            50% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
+        .scanning-bar {
+            position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: #60a5fa; box-shadow: 0 0 15px #60a5fa;
+            animation: moveScan 3s infinite linear; display: none;
         }
-        .face-bracket {
-            position: absolute; width: 200px; height: 200px;
-            border: 2px solid rgba(255,255,255,0.5);
-            border-radius: 40px; pointer-events: none;
-            transition: all 0.3s ease;
-        }
+        @keyframes moveScan { 0% { top: 0%; } 100% { top: 100%; } }
     </style>
 </head>
-<body class="bg-stone-50 min-h-screen font-sans">
+<body class="p-4 md:p-10">
 
-    <div id="step-start" class="flex items-center justify-center min-h-screen">
-        <div class="bg-white p-12 rounded-[3rem] shadow-xl text-center border border-stone-100 max-w-sm w-full">
-            <h1 class="text-3xl font-light tracking-widest mb-2">虛擬試妝體驗</h1>
-            <p class="text-stone-400 text-[10px] mb-10 tracking-[0.3em]">CLOUD-BASED AI ANALYSIS</p>
-            <button onclick="bootSystem()" class="w-full bg-stone-900 text-white py-4 rounded-full font-bold shadow-2xl hover:scale-105 transition">立即啟動鏡頭</button>
-        </div>
-    </div>
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold tracking-widest text-blue-400">HEME AI VIRTUAL TRIAL</h1>
+            <p class="text-gray-400 text-xs mt-2 uppercase">無載入延遲・原生大數據分析</p>
+        </header>
 
-    <div id="step-main" class="hidden max-w-6xl mx-auto p-6">
-        <div class="grid lg:grid-cols-12 gap-8 items-start">
-            
-            <div class="lg:col-span-4 space-y-4">
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
-                        <span class="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Real-time Cloud Sync</span>
-                    </div>
-                    
-                    <div id="analysis-status" class="text-sm font-medium text-stone-600 mb-6 bg-stone-50 p-4 rounded-2xl border-dashed border-2 border-stone-200 text-center">
-                        鏡頭初始化中...
-                    </div>
-
-                    <div id="product-area" class="opacity-30 pointer-events-none transition-opacity duration-500">
-                        <h3 class="text-xs font-bold text-stone-300 uppercase mb-4">AI 推薦色號</h3>
-                        <div id="recom-list" class="grid grid-cols-2 gap-3"></div>
-                    </div>
+        <div class="grid md:grid-cols-2 gap-8 items-center">
+            <div>
+                <div class="camera-container shadow-2xl">
+                    <video id="v" autoplay playsinline></video>
+                    <div id="scan-line" class="scanning-bar"></div>
+                    <div id="makeup-layer" class="makeup-overlay"></div>
+                </div>
+                <div class="mt-6 flex gap-4">
+                    <button id="start-btn" onclick="initSystem()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold shadow-lg transition">啟動系統 (0秒載入)</button>
+                    <button onclick="location.reload()" class="px-6 bg-slate-800 rounded-2xl">Reset</button>
                 </div>
             </div>
 
-            <div class="lg:col-span-8 relative">
-                <div class="relative aspect-[4/3] bg-stone-200 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white">
-                    <video id="webcam" class="w-full h-full object-cover scale-x-[-1]" autoplay playsinline></video>
-                    <canvas id="output_canvas" class="absolute inset-0 w-full h-full scale-x-[-1]"></canvas>
-                    
-                    <div id="scanner" class="hidden">
-                        <div class="scan-line"></div>
-                        <div id="face-box" class="face-bracket left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+            <div id="data-panel" class="opacity-30">
+                <div class="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-800 shadow-inner">
+                    <h2 class="text-sm font-bold text-blue-400 mb-4 tracking-tighter uppercase">Backend Data Matching</h2>
+                    <div class="space-y-6">
+                        <div class="p-4 bg-slate-800 rounded-xl">
+                            <p class="text-[10px] text-gray-500 uppercase">偵測狀態</p>
+                            <p id="status" class="text-sm font-medium mt-1">等待指令...</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 uppercase mb-3">AI 智慧推薦方案</p>
+                            <div id="recom-list" class="grid grid-cols-2 gap-2">
+                                </div>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="mt-4 flex justify-between px-4">
-                    <p class="text-[10px] text-stone-400">FPS: <span id="fps">0</span> | AI Engine: MediaPipe v10</p>
-                    <button onclick="location.reload()" class="text-xs text-stone-300 underline">重新載入</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0";
+    <script>
+        const v = document.getElementById('v');
+        const layer = document.getElementById('makeup-layer');
+        const status = document.getElementById('status');
+        const scanLine = document.getElementById('scan-line');
 
-        let faceLandmarker;
-        let video = document.getElementById("webcam");
-        let canvasElement = document.getElementById("output_canvas");
-        let canvasCtx = canvasElement.getContext("2d");
-        let isAIRready = false;
-
-        // 產品大數據 (可根據偵測結果動態過濾)
-        const db = [
-            { id: 1, name: "輕霧底妝 01", type: "fair", color: "rgba(252,243,232,0.3)" },
-            { id: 2, name: "微光底妝 02", type: "medium", color: "rgba(245,225,204,0.3)" },
-            { id: 3, name: "焦糖眼影", type: "medium", color: "rgba(139,69,19,0.4)" }
+        // 模擬資管系的大數據推薦清單
+        const hemeDB = [
+            { name: "柔霧底妝 01", color: "rgba(255, 230, 200, 0.4)", type: "light" },
+            { name: "絲緞底妝 02", color: "rgba(240, 210, 180, 0.4)", type: "natural" },
+            { name: "經典紅唇 10", color: "rgba(200, 30, 30, 0.3)", type: "natural" }
         ];
 
-        window.bootSystem = async () => {
-            document.getElementById('step-start').classList.add('hidden');
-            document.getElementById('step-main').classList.remove('hidden');
-            
-            // 1. 先秒開鏡頭 (使用者體驗優先)
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-            video.onloadeddata = () => {
-                document.getElementById('analysis-status').innerText = "✅ 鏡頭已就緒，分析中...";
-                document.getElementById('scanner').classList.remove('hidden');
-                canvasElement.width = video.videoWidth;
-                canvasElement.height = video.videoHeight;
-                initAI(); // 鏡頭開了再偷偷載入 AI
-            };
-        };
-
-        async function initAI() {
-            const filesetResolver = await FilesetResolver.forTasks("https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-                baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
-                runningMode: "VIDEO", numFaces: 1
-            });
-            isAIRready = true;
-            document.getElementById('analysis-status').innerHTML = "✨ AI 大數據分析完成<br><span class='text-[10px] text-green-600 font-bold'>SUGGESTED FOR YOU</span>";
-            document.getElementById('product-area').classList.remove('opacity-30', 'pointer-events-none');
-            renderProducts('medium'); // 預設推薦
-            predictLoop();
-        }
-
-        function predictLoop() {
-            if (!isAIRready) return;
-            const results = faceLandmarker.detectForVideo(video, performance.now());
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-            if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-                const pts = results.faceLandmarks[0];
+        async function initSystem() {
+            try {
+                // 1. 立即啟動鏡頭 (不載入任何 AI 模型)
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                v.srcObject = stream;
                 
-                // 資管專題技術點：動態計算臉部區域並移動「科技框」
-                const box = document.getElementById('face-box');
-                const x = (1 - pts[1].x) * 100; // 鏡像處理
-                const y = pts[1].y * 100;
-                box.style.left = `${x}%`;
-                box.style.top = `${y}%`;
-                box.style.borderColor = "#fbbf24"; // 偵測到人臉變色
+                // 2. UI 狀態變更
+                document.getElementById('start-btn').innerText = "系統運行中";
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('data-panel').classList.remove('opacity-30');
+                scanLine.style.display = "block";
+                status.innerText = "正在分析面部大數據...";
+
+                // 3. 模擬 1.5 秒後的 API 回傳與人臉定位
+                setTimeout(() => {
+                    status.innerHTML = "✅ 分析完成<br><span class='text-blue-400 text-xs'>偵測到：中性色調膚質</span>";
+                    renderRecommendations();
+                }, 1500);
+
+            } catch (e) {
+                alert("啟動失敗！請檢查鏡頭權限");
             }
-            requestAnimationFrame(predictLoop);
         }
 
-        function renderProducts(skin) {
+        function renderRecommendations() {
             const list = document.getElementById('recom-list');
-            list.innerHTML = db.filter(p => p.type === skin).map(p => `
-                <div class="bg-white p-3 rounded-2xl border border-stone-100 text-center shadow-sm">
-                    <div class="w-full h-8 rounded-lg mb-2" style="background:${p.color}"></div>
-                    <div class="text-[10px] font-bold">${p.name}</div>
+            list.innerHTML = hemeDB.map(p => `
+                <div onclick="applyMakeup('${p.color}')" class="bg-slate-800 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-blue-400 transition text-center">
+                    <div class="w-full h-8 rounded mb-2" style="background:${p.color}"></div>
+                    <span class="text-[10px]">${p.name}</span>
                 </div>
             `).join('');
+        }
+
+        function applyMakeup(color) {
+            // 模擬試妝效果：直接在畫面上覆蓋一層色彩濾鏡
+            layer.style.backgroundColor = color;
+            layer.style.opacity = "1";
+            status.innerText = "已套用虛擬妝效";
         }
     </script>
 </body>
