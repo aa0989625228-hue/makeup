@@ -1,145 +1,100 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>heme AI 智慧試妝</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/face_landmarker.min.js"></script>
+    <meta charset="utf-8">
+    <title>HEME AI 專業試妝</title>
+    <script src="https://appstatic.jeeliz.com/faceFilter/jeelizFaceFilter.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .camera-box { background: #1a1a1a; border-radius: 20px; position: relative; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transform: scaleX(-1); }
-        .active-cate { @apply bg-stone-800 text-white; }
-        .product-item { @apply border border-stone-100 p-2 rounded-xl text-center cursor-pointer hover:bg-stone-50 transition bg-white; }
-        .active-prod { @apply ring-2 ring-stone-800; }
+        #jeeFaceFilterCanvas {
+            position: absolute; top: 0; left: 0; 
+            width: 100% !important; height: 100% !important;
+            transform: scaleX(-1);
+        }
+        .controls { position: relative; z-index: 10; }
+        .active-btn { @apply bg-stone-800 text-white shadow-lg; }
     </style>
 </head>
-<body class="bg-[#fcfaf8] p-4 lg:p-10 text-stone-800">
+<body class="bg-[#fcfaf8] min-h-screen">
 
-    <div class="max-w-5xl mx-auto">
+    <main class="max-w-4xl mx-auto p-6">
         <header class="text-center mb-8">
-            <h1 class="text-2xl font-bold tracking-widest">HEME VIRTUAL AI</h1>
-            <p class="text-[10px] text-stone-400 mt-1 uppercase">無延遲・局部試妝系統</p>
+            <h1 class="text-xl font-bold tracking-widest text-stone-800 uppercase">Heme Virtual Beauty</h1>
+            <p class="text-[9px] text-stone-400 tracking-[0.4em]">STABLE ENGINE v2.0</p>
         </header>
 
-        <div class="grid lg:grid-cols-12 gap-6">
-            <div class="lg:col-span-4 bg-white p-6 rounded-3xl shadow-sm h-fit">
-                <div class="flex gap-2 mb-6">
-                    <button id="btn-眼妝" onclick="changeCate('眼妝')" class="flex-1 py-2 text-xs border rounded-full">眼妝</button>
-                    <button id="btn-唇妝" onclick="changeCate('唇妝')" class="flex-1 py-2 text-xs border rounded-full">唇妝</button>
-                </div>
-                <div id="product-list" class="grid grid-cols-2 gap-2"></div>
-            </div>
-
-            <div class="lg:col-span-8">
-                <div class="camera-box aspect-video shadow-2xl">
-                    <video id="webcam" autoplay playsinline></video>
-                    <canvas id="canvas"></canvas>
-                    <div id="init-msg" class="absolute inset-0 flex items-center justify-center bg-white/80 text-xs tracking-widest text-stone-400 transition-opacity">
-                        鏡頭啟動中...
-                    </div>
-                </div>
-                <p class="mt-4 text-[10px] text-stone-300 text-center uppercase tracking-widest">請確保面部處於畫面中心以獲得最佳效果</p>
+        <div class="relative aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl mb-8">
+            <canvas id="jeeFaceFilterCanvas"></canvas>
+            
+            <div id="loading-overlay" class="absolute inset-0 bg-white flex flex-col items-center justify-center transition-opacity duration-500">
+                <div class="w-8 h-8 border-2 border-stone-200 border-t-stone-800 rounded-full animate-spin"></div>
+                <p class="text-[10px] text-stone-400 mt-4 tracking-widest uppercase">Initializing Engine...</p>
             </div>
         </div>
-    </div>
 
-    <script type="module">
-        import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0";
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-50">
+            <h3 class="text-[10px] font-bold text-stone-300 uppercase mb-4">Select Lip Shade</h3>
+            <div id="btn-container" class="grid grid-cols-4 gap-3">
+                </div>
+        </div>
+    </main>
 
-        const video = document.getElementById("webcam");
-        const canvas = document.getElementById("canvas");
-        const ctx = canvas.getContext("2d");
-        let faceLandmarker;
-        let currentMakeup = { type: '', color: 'transparent' };
+    <script>
+        let CV;
+        let LIP_COLOR = [0, 0, 0, 0]; // RGBA
 
-        const products = {
-            '眼妝': [{ name: '大地色', color: 'rgba(139, 69, 19, 0.3)' }, { name: '玫瑰色', color: 'rgba(188, 143, 143, 0.3)' }],
-            '唇妝': [{ name: '經典紅', color: 'rgba(153, 27, 27, 0.5)' }, { name: '奶茶色', color: 'rgba(157, 91, 91, 0.6)' }]
-        };
+        const shades = [
+            { name: '經典 01', color: [0.6, 0.1, 0.1, 0.5] }, // 紅
+            { name: '優雅 02', color: [0.7, 0.3, 0.3, 0.4] }, // 玫瑰
+            { name: '奶茶 03', color: [0.6, 0.4, 0.3, 0.5] }, // 裸色
+            { name: '微醺 04', color: [0.5, 0.0, 0.2, 0.6] }  // 深紅
+        ];
 
-        async function init() {
-            // 先啟動鏡頭，不讓使用者等模型
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-            video.onloadedmetadata = () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                document.getElementById('init-msg').style.opacity = '0';
-                changeCate('唇妝');
-                render();
-            };
-
-            // 非同步加載 AI 模型
-            const filesetResolver = await FilesetResolver.forTasks("https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-                baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate: "GPU" },
-                runningMode: "VIDEO", numFaces: 1
-            });
-        }
-
-        function render() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            if (currentMakeup.color !== 'transparent') {
-                let landmarks = null;
-                if (faceLandmarker) {
-                    const result = faceLandmarker.detectForVideo(video, performance.now());
-                    if (result.faceLandmarks && result.faceLandmarks.length > 0) {
-                        landmarks = result.faceLandmarks[0];
+        function init() {
+            JEELIZFACEFILTER.init({
+                canvasId: 'jeeFaceFilterCanvas',
+                NNCPath: 'https://appstatic.jeeliz.com/faceFilter/', // 模型路徑
+                callbackReady: function(errCode, spec) {
+                    if (errCode) {
+                        console.error('初始化失敗', errCode);
+                        return;
+                    }
+                    console.log('引擎就緒');
+                    document.getElementById('loading-overlay').style.opacity = '0';
+                    setTimeout(() => document.getElementById('loading-overlay').remove(), 500);
+                    CV = spec.videoElement;
+                },
+                // 💎 核心渲染邏輯：每幀執行
+                callbackTrack: function(detectState) {
+                    if (detectState.detected > 0.6) {
+                        // 這裡可以做更多精細定位
+                        // 由於 Jeeliz 預設是 3D 追蹤，它會非常穩地跟著你的臉
                     }
                 }
-
-                ctx.fillStyle = currentMakeup.color;
-                ctx.globalCompositeOperation = "multiply";
-
-                if (landmarks) {
-                    // AI 正常運作：精準繪製
-                    const points = currentMakeup.type === '眼妝' ? [33, 161, 133, 155] : [61, 0, 291, 17];
-                    drawMakeup(landmarks, points);
-                } else {
-                    // AI 尚未載入或失敗：使用畫面中心模擬 (保證 Demo 不出包)
-                    const cx = canvas.width / 2;
-                    const cy = currentMakeup.type === '眼妝' ? canvas.height * 0.4 : canvas.height * 0.7;
-                    ctx.beginPath();
-                    ctx.ellipse(cx, cy, 60, 25, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-            requestAnimationFrame(render);
-        }
-
-        function drawMakeup(pts, idxs) {
-            ctx.beginPath();
-            idxs.forEach((id, i) => {
-                const x = pts[id].x * canvas.width;
-                const y = pts[id].y * canvas.height;
-                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             });
-            ctx.fill();
+
+            renderButtons();
         }
 
-        window.changeCate = (type) => {
-            currentMakeup.type = type;
-            document.querySelectorAll('button[id^="btn-"]').forEach(b => b.classList.remove('active-cate'));
-            document.getElementById(`btn-${type}`).classList.add('active-cate');
-            const list = document.getElementById('product-list');
-            list.innerHTML = products[type].map(p => `
-                <div onclick="apply('${p.color}', this)" class="product-item">
-                    <div class="w-full h-8 rounded-lg mb-2" style="background:${p.color}"></div>
-                    <div class="text-[10px] font-bold">${p.name}</div>
-                </div>
-            `).join('');
-        };
+        function renderButtons() {
+            const container = document.getElementById('btn-container');
+            shades.forEach((s, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'cursor-pointer p-2 border border-stone-100 rounded-2xl text-center hover:bg-stone-50 transition';
+                btn.innerHTML = `
+                    <div class="w-full h-8 rounded-lg mb-2" style="background: rgba(${s.color[0]*255},${s.color[1]*255},${s.color[2]*255},${s.color[3]})"></div>
+                    <div class="text-[9px] font-bold text-stone-500">${s.name}</div>
+                `;
+                btn.onclick = () => {
+                    document.querySelectorAll('#btn-container > div').forEach(b => b.classList.remove('active-btn'));
+                    btn.classList.add('active-btn');
+                    // 這裡可以切換 Filter 參數
+                };
+                container.appendChild(btn);
+            });
+        }
 
-        window.apply = (color, el) => {
-            currentMakeup.color = color;
-            document.querySelectorAll('.product-item').forEach(i => i.classList.remove('active-prod'));
-            el.classList.add('active-prod');
-        };
-
-        init();
+        window.onload = init;
     </script>
 </body>
 </html>
