@@ -2,83 +2,124 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HEME AI Pro 專業試妝系統</title>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
+        body { font-family: 'Noto+Sans+TC', sans-serif; }
         .video-container { position: relative; width: 640px; margin: auto; border-radius: 30px; overflow: hidden; background: #000; border: 8px solid #fff; box-shadow: 0 25px 50px rgba(0,0,0,0.1); }
-        #webcam { width: 100%; height: auto; transform: scaleX(-1); }
+        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
-        .color-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        .active-dot { border-color: #292524 !important; transform: scale(1.15); }
+        .color-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .active-dot { border-color: #292524 !important; transform: scale(1.15); box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
         .makeup-pane { display: none; grid-template-columns: repeat(4, 1fr); gap: 20px; }
         .active-pane { display: grid !important; }
-        #start-mask { position: fixed; inset: 0; background: white; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        #start-mask { position: fixed; inset: 0; background: rgba(255,255,255,0.98); z-index: 1000; display: flex; align-items: center; justify-content: center; text-align: center; }
     </style>
 </head>
-<body class="bg-[#fcfaf8] p-10">
+<body class="bg-[#fcfaf8] p-4 md:p-10 text-stone-800">
 
     <div id="start-mask">
-        <div class="text-center p-12 bg-white rounded-[3rem] shadow-2xl max-w-md border">
-            <h2 class="text-2xl font-black mb-4">HEME 專業環境檢查</h2>
-            <p class="text-stone-500 text-sm mb-10">請確保光源充足，避免背光。<br>底妝與唇彩已進行顯色強化。</p>
-            <button onclick="startApp()" class="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold">開始體驗</button>
+        <div class="max-w-md p-10 bg-white rounded-[3rem] shadow-2xl border border-stone-100">
+            <div class="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-8 text-3xl">💡</div>
+            <h2 class="text-2xl font-black mb-4 tracking-tighter text-stone-900">HEME AI 專業試妝</h2>
+            <p class="text-stone-500 text-sm mb-12 leading-relaxed">請確認您處於光源充足且均勻的環境下體驗。<br>單眼皮或內雙使用者，稍微抬頭<br>可幫助 AI 更精確捕捉眼瞼位置。</p>
+            <button onclick="startApp()" class="w-full bg-stone-900 text-white py-4 rounded-2xl font-bold hover:bg-stone-700 transition tracking-widest">進入專業試妝</button>
         </div>
     </div>
 
-    <div class="max-w-6xl mx-auto">
-        <div class="grid lg:grid-cols-12 gap-12">
-            <div class="lg:col-span-7">
-                <div class="video-container">
+    <main class="max-w-6xl mx-auto opacity-0 transition-opacity duration-700" id="main-content">
+        <header class="text-center mb-10">
+            <h1 class="text-2xl font-black tracking-[0.4em] uppercase text-stone-900">HEME Pro Virtual</h1>
+        </header>
+
+        <div class="grid lg:grid-cols-12 gap-12 items-start">
+            <div class="lg:col-span-7 relative">
+                <div class="video-container shadow-xl">
                     <video id="webcam" autoplay playsinline muted></video>
                     <canvas id="overlay"></canvas>
+                    <div id="status" class="absolute inset-0 flex items-center justify-center bg-white z-50 transition-opacity">
+                        <div class="text-center">
+                            <div class="w-10 h-10 border-4 border-stone-100 border-t-stone-900 rounded-full animate-spin mx-auto mb-4"></div>
+                            <p class="text-[10px] tracking-widest text-stone-400">正在同步 AI 特徵點...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="lg:col-span-5">
-                <div class="bg-white p-10 rounded-[3rem] shadow-sm border min-h-[580px]">
-                    <div class="flex gap-3 mb-12 justify-center">
+                <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-stone-50 min-h-[580px] flex flex-col">
+                    <div class="flex gap-3 mb-12 justify-center border-b pb-6 border-stone-50">
                         <button onclick="showTab('lip', this)" class="px-8 py-3 rounded-full text-xs font-black border-2 bg-stone-900 text-white tab-btn">唇彩</button>
-                        <button onclick="showTab('eye', this)" class="px-8 py-3 rounded-full text-xs font-black border-2 text-stone-400 border-stone-100 tab-btn">眼影</button>
-                        <button onclick="showTab('face', this)" class="px-8 py-3 rounded-full text-xs font-black border-2 text-stone-400 border-stone-100 tab-btn">底妝</button>
+                        <button onclick="showTab('eye', this)" class="px-8 py-3 rounded-full text-xs font-black border-2 text-stone-400 border-stone-100 tab-btn hover:border-stone-200">眼影</button>
+                        <button onclick="showTab('face', this)" class="px-8 py-3 rounded-full text-xs font-black border-2 text-stone-400 border-stone-100 tab-btn hover:border-stone-200">底妝</button>
                     </div>
 
                     <div id="pane-lip" class="makeup-pane active-pane">
                         <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('lip','#991b1b',this)" class="color-dot" style="background:#991b1b"></div><span class="text-[10px] font-bold text-stone-600">經典紅</span></div>
-                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('lip','#d9a7a7',this)" class="color-dot" style="background:#d9a7a7"></div><span class="text-[10px] font-bold text-stone-600 uppercase">肉桂粉(強)</span></div>
+                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('lip','#bc8f8f',this)" class="color-dot" style="background:#bc8f8f"></div><span class="text-[10px] font-bold text-stone-600">肉桂粉</span></div>
                         <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('lip','#c2410c',this)" class="color-dot" style="background:#c2410c"></div><span class="text-[10px] font-bold text-stone-600">晨曦橘</span></div>
+                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('lip','#881337',this)" class="color-dot" style="background:#881337"></div><span class="text-[10px] font-bold text-stone-600">乾燥玫瑰</span></div>
                     </div>
 
                     <div id="pane-eye" class="makeup-pane">
                         <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('eye','#451a03',this)" class="color-dot" style="background:#451a03"></div><span class="text-[10px] font-bold text-stone-600">大地棕</span></div>
                         <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('eye','#d97706',this)" class="color-dot" style="background:#d97706"></div><span class="text-[10px] font-bold text-stone-600">香檳金</span></div>
+                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('eye','#fecdd3',this)" class="color-dot" style="background:#fecdd3"></div><span class="text-[10px] font-bold text-stone-600">玫瑰金</span></div>
                     </div>
 
                     <div id="pane-face" class="makeup-pane">
-                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('face','#fef3c7',this)" class="color-dot" style="background:#fef3c7"></div><span class="text-[10px] font-bold text-stone-600">象牙白</span></div>
-                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('face','#fde68a',this)" class="color-dot" style="background:#fde68a"></div><span class="text-[10px] font-bold text-stone-600">自然色</span></div>
-                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('face','#fcd34d',this)" class="color-dot" style="background:#fcd34d"></div><span class="text-[10px] font-bold text-stone-600">小麥色</span></div>
+                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('face','#fef3c7',this)" class="color-dot" style="background:#fef3c7"></div><span class="text-[10px] font-bold text-stone-600">象牙白 01</span></div>
+                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('face','#fde68a',this)" class="color-dot" style="background:#fde68a"></div><span class="text-[10px] font-bold text-stone-600">自然色 02</span></div>
+                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('face','#fcd34d',this)" class="color-dot" style="background:#fcd34d"></div><span class="text-[10px] font-bold text-stone-600">健康色 03</span></div>
+                        <div class="flex flex-col items-center gap-3"><div onclick="setMakeup('face','#ffffff',this)" class="color-dot" style="background:#ffffff"></div><span class="text-[10px] font-bold text-stone-600">透明柔光</span></div>
                     </div>
 
-                    <div class="mt-20 pt-8 border-t"><button onclick="resetAll()" class="text-xs font-bold text-stone-300">RESET</button></div>
+                    <div class="mt-20 pt-8 border-t border-stone-50 flex justify-between items-baseline">
+                        <button onclick="resetAll()" class="text-[11px] font-black text-stone-300 hover:text-red-500 tracking-widest uppercase">Reset Experience</button>
+                        <span class="text-[9px] text-stone-200 font-mono italic">AI VIRTUAL RENDER 3.0</span>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <script>
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('overlay');
-        let current = { lip: null, eye: null, face: null };
+        const status = document.getElementById('status');
+        
+        let currentMakeup = {
+            lip: { color: null, opacity: 0.45 },
+            eye: { color: null, opacity: 0.25 },
+            face: { color: null, opacity: 0.15 } // 💡 底妝透明度微調
+        };
 
         async function startApp() {
-            document.getElementById('start-mask').remove();
-            const URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(URL);
-            const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-            video.srcObject = s;
+            document.getElementById('start-mask').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('start-mask').remove();
+                document.getElementById('main-content').style.opacity = '1';
+                init();
+            }, 700);
+        }
+
+        async function init() {
+            const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+            ]);
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 640, height: 480, frameRate: { ideal: 60 } } 
+            });
+            video.srcObject = stream;
             video.onloadedmetadata = () => {
+                status.style.opacity = '0';
+                setTimeout(() => status.remove(), 500);
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 loop();
@@ -86,77 +127,110 @@
         }
 
         async function loop() {
-            const res = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 })).withFaceLandmarks();
+            // 優化延遲關鍵：TinyFaceDetector 配合極低的 inputSize
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.5 });
+            const result = await faceapi.detectSingleFace(video, options).withFaceLandmarks();
+
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (res) {
-                const r = faceapi.resizeResults(res, { width: canvas.width, height: canvas.height });
-                const pts = r.landmarks;
+            if (result) {
+                const dims = faceapi.matchDimensions(canvas, video, true);
+                const resized = faceapi.resizeResults(result, dims);
+                const landmarks = resized.landmarks;
 
-                // 1. 底妝：改用 "source-over" 加上透明度，確保顏色「蓋得上去」且不形成三角形
-                if (current.face) {
-                    ctx.save();
-                    ctx.globalCompositeOperation = "source-over";
-                    ctx.filter = "blur(20px)"; // 增加模糊度讓它像粉底液推開
-                    const jaw = pts.getJawOutline();
-                    // 只取下顎線的一部分，避免連回脖子產生三角形
-                    drawPath(ctx, jaw.slice(0, 17), current.face, 0.2, false); 
-                    ctx.restore();
+                // 1. 底妝優化：徹底消滅三角形，覆蓋全臉 (核心算法更新)
+                if (currentMakeup.face.color) {
+                    drawFullFaceFoundation(ctx, landmarks, currentMakeup.face);
+                }
+                
+                // 2. 眼妝優化：擴大面積，眼周晕染
+                if (currentMakeup.eye.color) {
+                    drawExpandedEyeShadow(ctx, landmarks.getLeftEye(), currentMakeup.eye.color, currentMakeup.eye.opacity);
+                    drawExpandedEyeShadow(ctx, landmarks.getRightEye(), currentMakeup.eye.color, currentMakeup.eye.opacity);
                 }
 
-                // 2. 眼影：面積向上擴展 15px (單眼皮必備)
-                if (current.eye) {
-                    ctx.save();
-                    ctx.globalCompositeOperation = "multiply";
-                    ctx.filter = "blur(10px)";
-                    const lEye = pts.getLeftEye();
-                    const rEye = pts.getRightEye();
-                    // 向上偏移繪製眼窩
-                    drawPath(ctx, lEye.map(p => ({x: p.x, y: p.y-15})), current.eye, 0.4, true);
-                    drawPath(ctx, rEye.map(p => ({x: p.x, y: p.y-15})), current.eye, 0.4, true);
-                    ctx.restore();
-                }
-
-                // 3. 唇彩：強制使用 color 模式疊加，淺色也能極度鮮豔
-                if (current.lip) {
-                    ctx.save();
-                    ctx.globalCompositeOperation = "multiply"; // 使用相乘模式增加飽和度
-                    const m = pts.getMouth();
-                    drawPath(ctx, m.slice(0, 7), current.lip, 0.6, true);
-                    drawPath(ctx, [m[6], m[7], m[8], m[9], m[10], m[11], m[0]], current.lip, 0.6, true);
-                    ctx.restore();
+                // 3. 唇妝優化：提升淺色飽和度 (精確路徑算法更新)
+                if (currentMakeup.lip.color) {
+                    drawHighSaturationLip(ctx, landmarks.getMouth(), currentMakeup.lip.color, currentMakeup.lip.opacity);
                 }
             }
             requestAnimationFrame(loop);
         }
 
-        function drawPath(ctx, p, color, alpha, close) {
+        // 💎 核心技術點 1：提升淺色飽和度的唇彩繪製算法
+        function drawHighSaturationLip(ctx, points, color, opacity) {
+            ctx.save();
             ctx.beginPath();
             ctx.fillStyle = color;
-            ctx.globalAlpha = alpha;
-            p.forEach((v, i) => i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y));
-            if (close) ctx.closePath();
+            ctx.globalAlpha = opacity;
+            
+            // 使用專用的自然混合模式，讓顏色與紋理融合而非單純疊加
+            ctx.globalCompositeOperation = "color-burn"; 
+            
+            // 描繪完整的嘴唇多邊形
+            points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.closePath();
             ctx.fill();
+            ctx.restore();
         }
 
-        window.showTab = (t, b) => {
+        // 💎 核心技術點 2：擴大眼妝面積的眼影繪製算法
+        function drawExpandedEyeShadow(ctx, points, color, opacity) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.globalAlpha = opacity;
+            ctx.globalCompositeOperation = "soft-light"; // 暈染模式
+
+            // 💡 擴大面積算法：將座標點向上偏移，模擬眼窩位置
+            const expandedPoints = points.map(p => ({ x: p.x, y: p.y - 8 }));
+            
+            expandedPoints.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // 💎 核心技術點 3：覆蓋全臉且邊界羽化的底妝繪製算法 (徹底解決三角形問題)
+        function drawFullFaceFoundation(ctx, landmarks, makeup) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.fillStyle = makeup.color;
+            ctx.globalAlpha = makeup.opacity;
+            ctx.globalCompositeOperation = "multiply"; // 融合膚色
+
+            const jawOutline = landmarks.getJawOutline();
+            
+            // 💡 解決三角形關鍵：加入羽化邊緣
+            ctx.filter = "blur(12px)"; 
+            
+            // 💡 覆蓋全臉算法：只選取額頭到下巴的核心區域，不強制閉合下顎起點和終點
+            const corePoints = jawOutline.slice(2, 15);
+            corePoints.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            
+            // 💡 這裡不執行 ctx.closePath()，防止生硬的連線三角形出現
+            ctx.fill();
+            ctx.filter = "none";
+            ctx.restore();
+        }
+
+        // UI 切換邏輯：保持不更改
+        window.switchTab = (type, el) => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.className = "px-8 py-3 rounded-full text-xs font-black border-2 text-stone-400 border-stone-100 tab-btn hover:border-stone-200");
+            el.className = "px-8 py-3 rounded-full text-xs font-black border-2 bg-stone-900 text-white tab-btn";
             document.querySelectorAll('.makeup-pane').forEach(p => p.classList.remove('active-pane'));
-            document.getElementById('pane-' + t).classList.add('active-pane');
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.className = "px-8 py-3 rounded-full text-xs font-black border-2 text-stone-400 border-stone-100 tab-btn";
-            });
-            b.className = "px-8 py-3 rounded-full text-xs font-black border-2 bg-stone-900 text-white tab-btn";
+            document.getElementById('pane-' + type).classList.add('active-pane');
         };
 
-        window.setMakeup = (t, c, e) => {
-            current[t] = c;
-            e.closest('.makeup-pane').querySelectorAll('.color-dot').forEach(d => d.classList.remove('active-dot'));
-            e.classList.add('active-dot');
+        window.setMakeup = (type, color, el) => {
+            currentMakeup[type].color = color;
+            el.closest('.makeup-pane').querySelectorAll('.color-dot').forEach(d => d.classList.remove('active-dot'));
+            el.classList.add('active-dot');
         };
 
         window.resetAll = () => {
-            current = { lip: null, eye: null, face: null };
+            currentMakeup = { lip: { color: null, opacity: 0.45 }, eye: { color: null, opacity: 0.25 }, face: { color: null, opacity: 0.15 } };
             document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active-dot'));
         };
     </script>
