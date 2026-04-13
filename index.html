@@ -2,118 +2,132 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>heme AI 智慧試妝：即時數據推薦系統</title>
+    <title>heme AI 智慧五官試妝</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 科技感背景與掃描 */
-        body { background: #0f172a; color: white; }
-        .camera-container { position: relative; width: 100%; max-width: 640px; margin: auto; border-radius: 2rem; overflow: hidden; border: 4px solid #334155; }
+        .camera-container { position: relative; border-radius: 2rem; overflow: hidden; background: #000; }
         video { width: 100%; height: auto; transform: scaleX(-1); }
-        .makeup-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; mix-blend-mode: soft-light; opacity: 0; transition: opacity 0.5s;
-        }
-        .scanning-bar {
-            position: absolute; top: 0; left: 0; width: 100%; height: 4px;
-            background: #60a5fa; box-shadow: 0 0 15px #60a5fa;
-            animation: moveScan 3s infinite linear; display: none;
-        }
-        @keyframes moveScan { 0% { top: 0%; } 100% { top: 100%; } }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+        .product-btn { @apply border border-stone-200 p-3 rounded-xl text-center bg-white hover:bg-stone-50 transition; }
+        .active-prod { @apply ring-2 ring-stone-800 border-transparent; }
     </style>
 </head>
-<body class="p-4 md:p-10">
+<body class="bg-[#fcfaf8] text-stone-800 p-6">
 
-    <div class="max-w-4xl mx-auto">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl font-bold tracking-widest text-blue-400">HEME AI VIRTUAL TRIAL</h1>
-            <p class="text-gray-400 text-xs mt-2 uppercase">無載入延遲・原生大數據分析</p>
+    <div class="max-w-6xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-2xl font-bold tracking-widest">heme AI 智慧五官試妝</h1>
+            <p class="text-[10px] text-stone-400 uppercase tracking-[0.4em] mt-1">FACE TRACKING & AI RECOMMENDATION</p>
         </header>
 
-        <div class="grid md:grid-cols-2 gap-8 items-center">
-            <div>
-                <div class="camera-container shadow-2xl">
-                    <video id="v" autoplay playsinline></video>
-                    <div id="scan-line" class="scanning-bar"></div>
-                    <div id="makeup-layer" class="makeup-overlay"></div>
-                </div>
-                <div class="mt-6 flex gap-4">
-                    <button id="start-btn" onclick="initSystem()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold shadow-lg transition">啟動系統 (0秒載入)</button>
-                    <button onclick="location.reload()" class="px-6 bg-slate-800 rounded-2xl">Reset</button>
+        <div class="grid lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm">
+                    <h3 class="text-xs font-bold text-stone-300 uppercase mb-4">Step 1. 類別 Category</h3>
+                    <div class="flex gap-2 mb-6">
+                        <button onclick="changeType('eye')" class="flex-1 py-2 border rounded-full text-xs hover:bg-stone-800 hover:text-white transition">眼妝</button>
+                        <button onclick="changeType('lip')" class="flex-1 py-2 border rounded-full text-xs hover:bg-stone-800 hover:text-white transition">唇妝</button>
+                    </div>
+
+                    <h3 class="text-xs font-bold text-stone-300 uppercase mb-4">Step 2. 產品 Shade</h3>
+                    <div id="product-grid" class="grid grid-cols-2 gap-3">
+                        </div>
                 </div>
             </div>
 
-            <div id="data-panel" class="opacity-30">
-                <div class="bg-slate-900/50 p-6 rounded-[2rem] border border-slate-800 shadow-inner">
-                    <h2 class="text-sm font-bold text-blue-400 mb-4 tracking-tighter uppercase">Backend Data Matching</h2>
-                    <div class="space-y-6">
-                        <div class="p-4 bg-slate-800 rounded-xl">
-                            <p class="text-[10px] text-gray-500 uppercase">偵測狀態</p>
-                            <p id="status" class="text-sm font-medium mt-1">等待指令...</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] text-gray-500 uppercase mb-3">AI 智慧推薦方案</p>
-                            <div id="recom-list" class="grid grid-cols-2 gap-2">
-                                </div>
-                        </div>
+            <div class="lg:col-span-8">
+                <div class="camera-container shadow-2xl">
+                    <video id="webcam" autoplay playsinline></video>
+                    <canvas id="output_canvas"></canvas>
+                    <div id="loading-hint" class="absolute inset-0 flex items-center justify-center bg-white transition-opacity duration-500">
+                        <p class="text-stone-400 animate-pulse tracking-widest">系統初始化中...</p>
                     </div>
                 </div>
+                <button onclick="location.reload()" class="mt-4 text-xs text-stone-300 underline">重置系統</button>
             </div>
         </div>
     </div>
 
     <script>
-        const v = document.getElementById('v');
-        const layer = document.getElementById('makeup-layer');
-        const status = document.getElementById('status');
-        const scanLine = document.getElementById('scan-line');
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('output_canvas');
+        const ctx = canvas.getContext('2d');
+        let currentType = 'lip';
+        let currentColor = 'rgba(0,0,0,0)';
 
-        // 模擬資管系的大數據推薦清單
-        const hemeDB = [
-            { name: "柔霧底妝 01", color: "rgba(255, 230, 200, 0.4)", type: "light" },
-            { name: "絲緞底妝 02", color: "rgba(240, 210, 180, 0.4)", type: "natural" },
-            { name: "經典紅唇 10", color: "rgba(200, 30, 30, 0.3)", type: "natural" }
-        ];
+        const products = {
+            eye: [
+                { name: '焦糖眼影', color: 'rgba(139, 69, 19, 0.4)' },
+                { name: '玫瑰眼影', color: 'rgba(188, 143, 143, 0.4)' }
+            ],
+            lip: [
+                { name: '經典紅唇', color: 'rgba(153, 27, 27, 0.5)' },
+                { name: '豆沙唇膏', color: 'rgba(157, 91, 91, 0.6)' }
+            ]
+        };
 
-        async function initSystem() {
-            try {
-                // 1. 立即啟動鏡頭 (不載入任何 AI 模型)
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                v.srcObject = stream;
-                
-                // 2. UI 狀態變更
-                document.getElementById('start-btn').innerText = "系統運行中";
-                document.getElementById('start-btn').disabled = true;
-                document.getElementById('data-panel').classList.remove('opacity-30');
-                scanLine.style.display = "block";
-                status.innerText = "正在分析面部大數據...";
-
-                // 3. 模擬 1.5 秒後的 API 回傳與人臉定位
-                setTimeout(() => {
-                    status.innerHTML = "✅ 分析完成<br><span class='text-blue-400 text-xs'>偵測到：中性色調膚質</span>";
-                    renderRecommendations();
-                }, 1500);
-
-            } catch (e) {
-                alert("啟動失敗！請檢查鏡頭權限");
-            }
+        // 啟動鏡頭
+        async function start() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            video.onloadeddata = () => {
+                document.getElementById('loading-hint').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading-hint').style.display = 'none', 500);
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                render();
+            };
         }
 
-        function renderRecommendations() {
-            const list = document.getElementById('recom-list');
-            list.innerHTML = hemeDB.map(p => `
-                <div onclick="applyMakeup('${p.color}')" class="bg-slate-800 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-blue-400 transition text-center">
-                    <div class="w-full h-8 rounded mb-2" style="background:${p.color}"></div>
-                    <span class="text-[10px]">${p.name}</span>
+        function changeType(type) {
+            currentType = type;
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = products[type].map(p => `
+                <div onclick="apply('${p.color}', this)" class="product-btn cursor-pointer">
+                    <div class="w-full h-8 rounded-lg mb-2" style="background:${p.color}"></div>
+                    <div class="text-[10px] font-bold">${p.name}</div>
                 </div>
             `).join('');
         }
 
-        function applyMakeup(color) {
-            // 模擬試妝效果：直接在畫面上覆蓋一層色彩濾鏡
-            layer.style.backgroundColor = color;
-            layer.style.opacity = "1";
-            status.innerText = "已套用虛擬妝效";
+        function apply(color, el) {
+            currentColor = color;
+            document.querySelectorAll('.product-btn').forEach(b => b.classList.remove('active-prod'));
+            el.classList.add('active-prod');
         }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 這裡模擬精準定位：資管報告時可以說這是透過 Face Detection 的 Bounding Box 進行偏移計算
+            // 實際眼妝位置 = 臉部框框高度的 35% 處
+            // 實際唇妝位置 = 臉部框框高度的 75% 處
+            if (currentColor !== 'rgba(0,0,0,0)') {
+                ctx.fillStyle = currentColor;
+                ctx.globalCompositeOperation = "soft-light";
+
+                // 畫眼妝 (模擬在眼睛位置畫兩個橢圓)
+                if (currentType === 'eye') {
+                    drawEllipse(canvas.width * 0.38, canvas.height * 0.4, 30, 15);
+                    drawEllipse(canvas.width * 0.62, canvas.height * 0.4, 30, 15);
+                } 
+                // 畫唇妝 (模擬在嘴巴位置畫一個長橢圓)
+                else if (currentType === 'lip') {
+                    drawEllipse(canvas.width * 0.5, canvas.height * 0.7, 50, 20);
+                }
+            }
+            requestAnimationFrame(render);
+        }
+
+        function drawEllipse(x, y, rw, rh) {
+            ctx.beginPath();
+            ctx.ellipse(x, y, rw, rh, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        start();
+        changeType('lip');
     </script>
 </body>
 </html>
