@@ -2,132 +2,174 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>heme AI 智慧五官試妝</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>heme AI 專業智慧試妝系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/face_landmarker.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .camera-container { position: relative; border-radius: 2rem; overflow: hidden; background: #000; }
-        video { width: 100%; height: auto; transform: scaleX(-1); }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
-        .product-btn { @apply border border-stone-200 p-3 rounded-xl text-center bg-white hover:bg-stone-50 transition; }
-        .active-prod { @apply ring-2 ring-stone-800 border-transparent; }
+        :root { --heme-stone: #a8a29e; --heme-dark: #292524; }
+        .camera-box { background: #000; border-radius: 20px; position: relative; overflow: hidden; border: 2px solid #e7e5e4; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        
+        /* ✨ 關鍵：專業繪圖層 (Canvas) */
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transform: scaleX(-1); }
+
+        .active-cate { @apply bg-stone-800 text-white shadow-lg scale-105; }
+        .product-item { @apply border border-stone-100 p-2 rounded-lg text-center cursor-pointer hover:bg-stone-50 transition bg-white; }
+        .active-prod { @apply border-stone-800 ring-2 ring-stone-100 bg-stone-50; }
+        
+        /* 載入中動畫 */
+        .loading { border: 4px solid #f3f3f3; border-top: 4px solid #343a40; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-[#fcfaf8] text-stone-800 p-6">
+<body class="bg-[#fcfaf8] min-h-screen text-stone-800">
 
-    <div class="max-w-6xl mx-auto">
-        <header class="text-center mb-10">
-            <h1 class="text-2xl font-bold tracking-widest">heme AI 智慧五官試妝</h1>
-            <p class="text-[10px] text-stone-400 uppercase tracking-[0.4em] mt-1">FACE TRACKING & AI RECOMMENDATION</p>
-        </header>
+    <nav class="bg-white sticky top-0 z-50 p-4 border-b border-stone-100 text-center">
+        <h1 class="text-xl font-bold tracking-widest text-stone-800">HEME AI BEAUTY PLATFORM</h1>
+        <p class="text-[10px] text-stone-400 uppercase tracking-widest">Face Tracking & Recommendation</p>
+    </nav>
 
-        <div class="grid lg:grid-cols-12 gap-8">
-            <div class="lg:col-span-4 space-y-6">
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm">
-                    <h3 class="text-xs font-bold text-stone-300 uppercase mb-4">Step 1. 類別 Category</h3>
-                    <div class="flex gap-2 mb-6">
-                        <button onclick="changeType('eye')" class="flex-1 py-2 border rounded-full text-xs hover:bg-stone-800 hover:text-white transition">眼妝</button>
-                        <button onclick="changeType('lip')" class="flex-1 py-2 border rounded-full text-xs hover:bg-stone-800 hover:text-white transition">唇妝</button>
-                    </div>
-
-                    <h3 class="text-xs font-bold text-stone-300 uppercase mb-4">Step 2. 產品 Shade</h3>
-                    <div id="product-grid" class="grid grid-cols-2 gap-3">
-                        </div>
+    <main class="max-w-6xl mx-auto mt-6 p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-4 space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+                <h3 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Step 1. 選擇類別</h3>
+                <div class="flex gap-2 mb-8">
+                    <button id="btn-眼妝" onclick="selectCate('眼妝')" class="flex-1 py-3 text-xs border border-stone-100 rounded-full hover:bg-stone-50 transition">✨ 精緻眼妝</button>
+                    <button id="btn-唇妝" onclick="selectCate('唇妝')" class="flex-1 py-3 text-xs border border-stone-100 rounded-full hover:bg-stone-50 transition">💄 專業唇膏</button>
                 </div>
-            </div>
 
-            <div class="lg:col-span-8">
-                <div class="camera-container shadow-2xl">
-                    <video id="webcam" autoplay playsinline></video>
-                    <canvas id="output_canvas"></canvas>
-                    <div id="loading-hint" class="absolute inset-0 flex items-center justify-center bg-white transition-opacity duration-500">
-                        <p class="text-stone-400 animate-pulse tracking-widest">系統初始化中...</p>
+                <h3 class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Step 2. 挑選色號</h3>
+                <div id="product-grid" class="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2">
                     </div>
-                </div>
-                <button onclick="location.reload()" class="mt-4 text-xs text-stone-300 underline">重置系統</button>
             </div>
         </div>
-    </div>
 
-    <script>
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('output_canvas');
-        const ctx = canvas.getContext('2d');
-        let currentType = 'lip';
-        let currentColor = 'rgba(0,0,0,0)';
+        <div class="lg:col-span-8 relative">
+            <div id="camera-container" class="camera-box aspect-[4/3] shadow-2xl">
+                <video id="webcam" autoplay playsinline></video>
+                <canvas id="output_canvas"></canvas>
+                <div id="loading" class="absolute inset-0 flex items-center justify-center bg-stone-50 z-20 transition-opacity duration-500">
+                    <div class="loading mb-4"></div>
+                    <p class="text-stone-400 animate-pulse mt-4">AI 追蹤模型加載中...</p>
+                </div>
+            </div>
+            <button onclick="location.reload()" class="mt-4 text-stone-300 text-xs hover:text-stone-800 underline">重置 Reset</button>
+        </div>
+    </main>
+
+    <script type="module">
+        import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0";
+
+        let faceLandmarker;
+        let webcamRunning = false;
+        const video = document.getElementById("webcam");
+        const canvasElement = document.getElementById("output_canvas");
+        const canvasCtx = canvasElement.getContext("2d");
+        let activeMakeup = { mode: '', color: 'rgba(0,0,0,0)', mix: 'multiply' };
 
         const products = {
-            eye: [
-                { name: '焦糖眼影', color: 'rgba(139, 69, 19, 0.4)' },
-                { name: '玫瑰眼影', color: 'rgba(188, 143, 143, 0.4)' }
+            '眼妝': [
+                { name: '焦糖可可', color: 'rgba(139, 69, 19, 0.4)', mix: 'multiply' },
+                { name: '乾燥玫瑰', color: 'rgba(188, 143, 143, 0.4)', mix: 'multiply' }
             ],
-            lip: [
-                { name: '經典紅唇', color: 'rgba(153, 27, 27, 0.5)' },
-                { name: '豆沙唇膏', color: 'rgba(157, 91, 91, 0.6)' }
+            '唇妝': [
+                { name: '經典紅酒', color: 'rgba(153, 27, 27, 0.5)', mix: 'soft-light' },
+                { name: '豆沙裸粉', color: 'rgba(157, 91, 91, 0.6)', mix: 'multiply' }
             ]
         };
 
-        // 啟動鏡頭
-        async function start() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-            video.onloadeddata = () => {
-                document.getElementById('loading-hint').style.opacity = '0';
-                setTimeout(() => document.getElementById('loading-hint').style.display = 'none', 500);
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                render();
-            };
+        // 💡 關鍵：初始化輕量化模型，並設定網路備援以防止卡死
+        async function setupFaceLandmarker() {
+            try {
+                const filesetResolver = await FilesetResolver.forTasks("https://cdn.jsdelivr.net/npm/@mediapipe/face_landmarker@0.10.0/wasm");
+                faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+                    baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
+                    runningMode: "VIDEO", numFaces: 1
+                });
+                startWebcam();
+            } catch (e) {
+                document.getElementById('loading').innerText = "載入失敗，請確認是否為 HTTPS 連線並使用手機熱點。";
+            }
         }
 
-        function changeType(type) {
-            currentType = type;
-            const grid = document.getElementById('product-grid');
-            grid.innerHTML = products[type].map(p => `
-                <div onclick="apply('${p.color}', this)" class="product-btn cursor-pointer">
-                    <div class="w-full h-8 rounded-lg mb-2" style="background:${p.color}"></div>
-                    <div class="text-[10px] font-bold">${p.name}</div>
-                </div>
-            `).join('');
+        async function startWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+                video.srcObject = stream;
+                video.addEventListener("loadeddata", () => {
+                    document.getElementById('loading').style.display = 'none';
+                    canvasElement.width = video.videoWidth;
+                    canvasElement.height = video.videoHeight;
+                    webcamRunning = true;
+                    predictWebcam();
+                    selectCate('唇妝'); // 預設類別
+                });
+            } catch (err) { alert("鏡頭開啟失敗！"); }
         }
 
-        function apply(color, el) {
-            currentColor = color;
-            document.querySelectorAll('.product-btn').forEach(b => b.classList.remove('active-prod'));
-            el.classList.add('active-prod');
-        }
-
-        function render() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 💎 核心技術點：專業繪圖迴圈predictWebcam
+        async function predictWebcam() {
+            if (!webcamRunning) return;
+            const results = faceLandmarker.detectForVideo(video, performance.now());
             
-            // 這裡模擬精準定位：資管報告時可以說這是透過 Face Detection 的 Bounding Box 進行偏移計算
-            // 實際眼妝位置 = 臉部框框高度的 35% 處
-            // 實際唇妝位置 = 臉部框框高度的 75% 處
-            if (currentColor !== 'rgba(0,0,0,0)') {
-                ctx.fillStyle = currentColor;
-                ctx.globalCompositeOperation = "soft-light";
+            // 清除畫布，準備繪製新一訊號的妝容
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-                // 畫眼妝 (模擬在眼睛位置畫兩個橢圓)
-                if (currentType === 'eye') {
-                    drawEllipse(canvas.width * 0.38, canvas.height * 0.4, 30, 15);
-                    drawEllipse(canvas.width * 0.62, canvas.height * 0.4, 30, 15);
-                } 
-                // 畫唇妝 (模擬在嘴巴位置畫一個長橢圓)
-                else if (currentType === 'lip') {
-                    drawEllipse(canvas.width * 0.5, canvas.height * 0.7, 50, 20);
+            if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+                const landmarks = results.faceLandmarks[0];
+                
+                // 根據模式繪製精準貼合的路徑
+                if (activeMakeup.mode === '眼妝') {
+                    // 偵測左眼與右眼的具體點位 (MediaPipeLandmarks)
+                    drawMakeup(canvasCtx, landmarks, [33, 160, 158, 133, 153, 144], activeMakeup.color); // 左
+                    drawMakeup(canvasCtx, landmarks, [362, 385, 387, 263, 373, 380], activeMakeup.color); // 右
+                } else if (activeMakeup.mode === '唇妝') {
+                    // 偵測嘴唇外廓，確保顏色只集中在嘴唇
+                    drawMakeup(canvasCtx, landmarks, [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291], activeMakeup.color);
                 }
             }
-            requestAnimationFrame(render);
+            requestAnimationFrame(predictWebcam); // 循環繪製
         }
 
-        function drawEllipse(x, y, rw, rh) {
+        // ✨ 精細貼合技術：在 Canvas 上沿著五官座標點繪製多邊形
+        function drawMakeup(ctx, landmarks, points, color) {
             ctx.beginPath();
-            ctx.ellipse(x, y, rw, rh, 0, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.globalCompositeOperation = activeMakeup.mix; // 使用專業混合模式
+            points.forEach((idx, i) => {
+                const x = landmarks[idx].x * canvasElement.width;
+                const y = landmarks[idx].y * canvasElement.height;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.closePath();
             ctx.fill();
         }
 
-        start();
-        changeType('lip');
+        // 將重要函數綁定到全域供按鈕使用
+        window.selectCate = (cat) => {
+            document.querySelectorAll('button[id^="btn-"]').forEach(b => b.classList.remove('active-cate'));
+            document.getElementById(`btn-${cat}`).classList.add('active-cate');
+            
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+            products[cat].forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'product-item product-item relative p-2 border rounded-xl cursor-pointer hover:bg-stone-50';
+                div.innerHTML = `<div class="w-full h-8 rounded mb-1 shadow-inner" style="background:${p.color}"></div>
+                                <div class="text-[10px] font-bold text-center text-stone-700">${p.name}</div>`;
+                div.onclick = () => {
+                    activeMakeup = { mode: cat, ...p };
+                    document.querySelectorAll('.product-item').forEach(i => i.classList.remove('active-prod'));
+                    div.classList.add('active-prod');
+                };
+                grid.appendChild(div);
+            });
+        };
+
+        setupFaceLandmarker();
     </script>
 </body>
 </html>
