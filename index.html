@@ -1,100 +1,130 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
 <head>
-    <meta charset="utf-8">
-    <title>HEME AI 專業試妝</title>
-    <script src="https://appstatic.jeeliz.com/faceFilter/jeelizFaceFilter.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>heme AI 智慧試妝</title>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        #jeeFaceFilterCanvas {
-            position: absolute; top: 0; left: 0; 
-            width: 100% !important; height: 100% !important;
-            transform: scaleX(-1);
-        }
-        .controls { position: relative; z-index: 10; }
-        .active-btn { @apply bg-stone-800 text-white shadow-lg; }
+        .video-container { position: relative; width: 100%; max-width: 640px; margin: auto; border-radius: 20px; overflow: hidden; background: #000; }
+        #webcam { width: 100%; height: auto; transform: scaleX(-1); }
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+        .product-btn { @apply border border-stone-200 p-3 rounded-2xl bg-white transition-all hover:border-stone-800 active:scale-95; }
+        .active-prod { @apply border-stone-800 ring-2 ring-stone-100 bg-stone-50; }
     </style>
 </head>
-<body class="bg-[#fcfaf8] min-h-screen">
+<body class="bg-[#fcfaf8] p-4 lg:p-10">
 
-    <main class="max-w-4xl mx-auto p-6">
-        <header class="text-center mb-8">
-            <h1 class="text-xl font-bold tracking-widest text-stone-800 uppercase">Heme Virtual Beauty</h1>
-            <p class="text-[9px] text-stone-400 tracking-[0.4em]">STABLE ENGINE v2.0</p>
-        </header>
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-center text-xl font-bold tracking-widest text-stone-800 mb-8 uppercase">Heme Precision AI</h1>
 
-        <div class="relative aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl mb-8">
-            <canvas id="jeeFaceFilterCanvas"></canvas>
-            
-            <div id="loading-overlay" class="absolute inset-0 bg-white flex flex-col items-center justify-center transition-opacity duration-500">
-                <div class="w-8 h-8 border-2 border-stone-200 border-t-stone-800 rounded-full animate-spin"></div>
-                <p class="text-[10px] text-stone-400 mt-4 tracking-widest uppercase">Initializing Engine...</p>
+        <div class="grid lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-8">
+                <div class="video-container shadow-2xl">
+                    <video id="webcam" autoplay playsinline muted></video>
+                    <canvas id="overlay"></canvas>
+                    <div id="status" class="absolute inset-0 flex items-center justify-center bg-white text-xs tracking-tighter">
+                        <span class="animate-pulse">系統初始化中 (HEME AI ENGINE)...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-white p-6 rounded-3xl shadow-sm">
+                    <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-4">選取唇色</h3>
+                    <div class="grid grid-cols-2 gap-3" id="lipstick-grid">
+                        <button onclick="applyLipstick('#991b1b', 0.5, this)" class="product-btn">
+                            <div class="w-full h-8 rounded-lg mb-2" style="background: #991b1b;"></div>
+                            <span class="text-[10px] font-bold text-stone-600">經典紅</span>
+                        </button>
+                        <button onclick="applyLipstick('#9d5b5b', 0.6, this)" class="product-btn">
+                            <div class="w-full h-8 rounded-lg mb-2" style="background: #9d5b5b;"></div>
+                            <span class="text-[10px] font-bold text-stone-600">豆沙粉</span>
+                        </button>
+                    </div>
+                    <button onclick="clearLipstick()" class="w-full mt-4 py-2 text-[10px] text-stone-300 underline uppercase tracking-widest">重置效果</button>
+                </div>
             </div>
         </div>
-
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-50">
-            <h3 class="text-[10px] font-bold text-stone-300 uppercase mb-4">Select Lip Shade</h3>
-            <div id="btn-container" class="grid grid-cols-4 gap-3">
-                </div>
-        </div>
-    </main>
+    </div>
 
     <script>
-        let CV;
-        let LIP_COLOR = [0, 0, 0, 0]; // RGBA
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('overlay');
+        const status = document.getElementById('status');
+        let currentLipColor = null;
+        let currentOpacity = 0.5;
 
-        const shades = [
-            { name: '經典 01', color: [0.6, 0.1, 0.1, 0.5] }, // 紅
-            { name: '優雅 02', color: [0.7, 0.3, 0.3, 0.4] }, // 玫瑰
-            { name: '奶茶 03', color: [0.6, 0.4, 0.3, 0.5] }, // 裸色
-            { name: '微醺 04', color: [0.5, 0.0, 0.2, 0.6] }  // 深紅
-        ];
+        // 1. 強制從穩定節點載入極小模型 (防止卡 0%)
+        async function loadModels() {
+            const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
+            try {
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+                ]);
+                startVideo();
+            } catch (e) {
+                status.innerText = "模型載入失敗，請檢查 GitHub 連線";
+            }
+        }
 
-        function init() {
-            JEELIZFACEFILTER.init({
-                canvasId: 'jeeFaceFilterCanvas',
-                NNCPath: 'https://appstatic.jeeliz.com/faceFilter/', // 模型路徑
-                callbackReady: function(errCode, spec) {
-                    if (errCode) {
-                        console.error('初始化失敗', errCode);
-                        return;
-                    }
-                    console.log('引擎就緒');
-                    document.getElementById('loading-overlay').style.opacity = '0';
-                    setTimeout(() => document.getElementById('loading-overlay').remove(), 500);
-                    CV = spec.videoElement;
-                },
-                // 💎 核心渲染邏輯：每幀執行
-                callbackTrack: function(detectState) {
-                    if (detectState.detected > 0.6) {
-                        // 這裡可以做更多精細定位
-                        // 由於 Jeeliz 預設是 3D 追蹤，它會非常穩地跟著你的臉
-                    }
+        function startVideo() {
+            navigator.mediaDevices.getUserMedia({ video: {} })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        status.style.opacity = '0';
+                        setTimeout(() => status.remove(), 500);
+                        onPlay();
+                    };
+                });
+        }
+
+        async function onPlay() {
+            if (video.paused || video.ended) return setTimeout(() => onPlay());
+
+            // 使用 TinyFaceDetector (極速版)，專門解決手機跑不動的問題
+            const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+
+            if (result) {
+                const dims = faceapi.matchDimensions(canvas, video, true);
+                const resizedResult = faceapi.resizeResults(result, dims);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (currentLipColor) {
+                    const mouth = resizedResult.landmarks.getMouth();
+                    ctx.beginPath();
+                    ctx.fillStyle = currentLipColor;
+                    ctx.globalAlpha = currentOpacity;
+                    ctx.globalCompositeOperation = "multiply"; // 自然融合紋理
+                    
+                    mouth.forEach((pt, i) => {
+                        if (i === 0) ctx.moveTo(pt.x, pt.y);
+                        else ctx.lineTo(pt.x, pt.y);
+                    });
+                    ctx.closePath();
+                    ctx.fill();
                 }
-            });
-
-            renderButtons();
+            }
+            requestAnimationFrame(() => onPlay());
         }
 
-        function renderButtons() {
-            const container = document.getElementById('btn-container');
-            shades.forEach((s, idx) => {
-                const btn = document.createElement('div');
-                btn.className = 'cursor-pointer p-2 border border-stone-100 rounded-2xl text-center hover:bg-stone-50 transition';
-                btn.innerHTML = `
-                    <div class="w-full h-8 rounded-lg mb-2" style="background: rgba(${s.color[0]*255},${s.color[1]*255},${s.color[2]*255},${s.color[3]})"></div>
-                    <div class="text-[9px] font-bold text-stone-500">${s.name}</div>
-                `;
-                btn.onclick = () => {
-                    document.querySelectorAll('#btn-container > div').forEach(b => b.classList.remove('active-btn'));
-                    btn.classList.add('active-btn');
-                    // 這裡可以切換 Filter 參數
-                };
-                container.appendChild(btn);
-            });
-        }
+        window.applyLipstick = (color, opacity, el) => {
+            currentLipColor = color;
+            currentOpacity = opacity;
+            document.querySelectorAll('.product-btn').forEach(b => b.classList.remove('active-prod'));
+            el.classList.add('active-prod');
+        };
 
-        window.onload = init;
+        window.clearLipstick = () => {
+            currentLipColor = null;
+            document.querySelectorAll('.product-btn').forEach(b => b.classList.remove('active-prod'));
+        };
+
+        loadModels();
     </script>
 </body>
 </html>
