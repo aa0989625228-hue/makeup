@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #fcfcfc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+        body { background: #fcfcfc; font-family: -apple-system, sans-serif; overflow: hidden; }
         .video-container { 
             position: relative; width: 100%; max-width: 480px; aspect-ratio: 3/4; 
             margin: auto; border-radius: 2.5rem; overflow: hidden; 
@@ -42,7 +42,7 @@
     </div>
 
     <div class="max-w-md mx-auto">
-        <header class="text-center mb-6">
+        <header class="text-center mb-6 mt-2">
             <h1 class="text-xs font-bold tracking-[0.4em] text-stone-300 uppercase">HEME PRO V8 NATURAL</h1>
         </header>
 
@@ -67,8 +67,8 @@
                     <div class="color-ring" style="background:#D67B7B"></div>
                     <span class="text-[10px] font-bold text-stone-500">玫瑰金</span>
                 </div>
-                <div onclick="applyMakeup('lip','#A35D4D',this)" class="color-item">
-                    <div class="color-ring" style="background:#A35D4D"></div>
+                <div onclick="applyMakeup('lip','#9E5B4F',this)" class="color-item">
+                    <div class="color-ring" style="background:#9E5B4F"></div>
                     <span class="text-[10px] font-bold text-stone-500">暖茶棕</span>
                 </div>
                 <div onclick="applyMakeup('lip','#E06666',this)" class="color-item">
@@ -90,6 +90,10 @@
                     <div class="color-ring" style="background:#D4A5A5"></div>
                     <span class="text-[10px] font-bold text-stone-500">甜心粉</span>
                 </div>
+                <div onclick="applyMakeup('eye','#8B7355',this)" class="color-item">
+                    <div class="color-ring" style="background:#8B7355"></div>
+                    <span class="text-[10px] font-bold text-stone-500">可可色</span>
+                </div>
             </div>
 
             <div id="tab-face" class="hidden grid grid-cols-4 gap-3 makeup-panel">
@@ -100,6 +104,10 @@
                 <div onclick="applyMakeup('face','#E8D0BB',this)" class="color-item">
                     <div class="color-ring" style="background:#E8D0BB"></div>
                     <span class="text-[10px] font-bold text-stone-500">自然色</span>
+                </div>
+                <div onclick="applyMakeup('face','#FCEFE5',this)" class="color-item">
+                    <div class="color-ring" style="background:#FCEFE5"></div>
+                    <span class="text-[10px] font-bold text-stone-500">白皙色</span>
                 </div>
             </div>
         </div>
@@ -122,7 +130,7 @@
             video.srcObject = stream;
             
             video.onloadedmetadata = () => {
-                // 核心修正：強制同步解析度
+                // 核心：畫布解析度與硬體同步，解決偏移問題
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 video.play();
@@ -140,6 +148,7 @@
             if (results.multiFaceLandmarks && results.multiFaceLandmarks[0]) {
                 const pts = results.multiFaceLandmarks[0];
 
+                // 1. 畫底妝 (柔霧濾鏡效果)
                 if (currentMakeup.face) {
                     ctx.save(); ctx.beginPath();
                     const faceContour = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
@@ -147,10 +156,13 @@
                         const p = pts[id];
                         i === 0 ? ctx.moveTo(p.x * canvas.width, p.y * canvas.height) : ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
                     });
-                    ctx.fillStyle = currentMakeup.face; ctx.globalAlpha = 0.2; ctx.globalCompositeOperation = "soft-light"; ctx.filter = "blur(12px)"; ctx.fill(); ctx.restore();
+                    ctx.fillStyle = currentMakeup.face; ctx.globalAlpha = 0.22; ctx.globalCompositeOperation = "soft-light"; ctx.filter = "blur(12px)"; ctx.fill(); ctx.restore();
                 }
 
+                // 2. 畫唇妝 (精確座標)
                 if (currentMakeup.lip) drawPart(pts, [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291], currentMakeup.lip, 0.45, "multiply", 2);
+                
+                // 3. 畫眼妝 (疊加層次)
                 if (currentMakeup.eye) {
                     drawPart(pts, [223, 224, 225, 226, 230, 231, 232], currentMakeup.eye, 0.2, "multiply", 10);
                     drawPart(pts, [443, 444, 445, 446, 450, 451, 452], currentMakeup.eye, 0.2, "multiply", 10);
