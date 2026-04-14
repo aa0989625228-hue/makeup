@@ -17,22 +17,31 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             object-fit: cover; transform: scaleX(-1); 
         }
-        /* 確保顏色選項一定會出現的樣式 */
+        /* 加大間距的選項樣式 */
         .color-item {
             display: flex; flex-direction: column; align-items: center;
-            cursor: pointer; padding: 5px; min-width: 60px;
+            cursor: pointer; padding: 12px; /* 增加內距讓點擊範圍變大 */
+            min-width: 80px;
         }
         .color-circle {
-            width: 48px; height: 48px; border-radius: 50%;
-            border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 52px; height: 52px; border-radius: 50%;
+            border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             margin-bottom: 8px; transition: transform 0.2s;
+            display: flex; align-items: center; justify-content: center;
         }
         .color-item:active .color-circle { transform: scale(0.9); }
-        .selected .color-circle { outline: 2px solid #292524; outline-offset: 2px; }
-        .color-label { font-size: 11px; font-weight: bold; color: #78716c; }
+        .selected .color-circle { outline: 2px solid #292524; outline-offset: 3px; }
+        .color-label { font-size: 12px; font-weight: bold; color: #78716c; }
         
+        /* 卸妝按鈕特殊樣式 */
+        .reset-icon { font-size: 20px; color: #a8a29e; }
+
         #gate { position: fixed; inset: 0; background: #fff; z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        .makeup-panel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+        .makeup-panel { 
+            display: flex; flex-wrap: wrap; justify-content: center; 
+            gap: 15px; /* 加大元件之間的間距 */
+            margin-top: 25px; 
+        }
         .hidden { display: none; }
     </style>
 </head>
@@ -41,14 +50,14 @@
     <div id="gate">
         <div class="max-w-md w-full p-8 text-center">
             <h2 class="text-2xl font-black mb-8 text-stone-900">歡迎體驗 HEME AI 試妝</h2>
-            <div class="bg-stone-50 p-6 rounded-[2rem] text-left mb-10 border border-stone-100">
+            <div class="bg-stone-50 p-6 rounded-[2rem] text-left mb-10 border border-stone-100 shadow-sm">
                 <p class="text-sm font-bold mb-4 text-stone-800">為了確保「自然服貼」效果，請注意：</p>
                 <div class="space-y-3 text-xs text-stone-500">
                     <p>1. 💡 正確燈光：請面向光源，確保光線充足。</p>
                     <p>2. 🚫 避免陰影：背光會影響 AI 對質感的判斷。</p>
                 </div>
             </div>
-            <button onclick="bootSystem()" class="w-full bg-[#292524] text-white py-4 rounded-full font-bold">我準備好了</button>
+            <button onclick="bootSystem()" class="w-full bg-[#292524] text-white py-4 rounded-full font-bold shadow-lg active:scale-95 transition-transform">我準備好了</button>
         </div>
     </div>
 
@@ -62,9 +71,9 @@
             <canvas id="overlay"></canvas>
         </div>
 
-        <div class="bg-white p-4 rounded-[2rem] shadow-sm mt-4">
+        <div class="bg-white p-6 rounded-[2.5rem] shadow-sm mt-4">
             <div class="flex p-1 bg-stone-100 rounded-full">
-                <button onclick="switchTab('lip', this)" class="flex-1 py-2 text-sm font-bold rounded-full bg-white shadow-sm text-stone-900" id="default-tab">唇部</button>
+                <button onclick="switchTab('lip', this)" class="flex-1 py-2 text-sm font-bold rounded-full bg-white shadow-sm text-stone-900">唇部</button>
                 <button onclick="switchTab('eye', this)" class="flex-1 py-2 text-sm font-bold rounded-full text-stone-400">眼部</button>
                 <button onclick="switchTab('face', this)" class="flex-1 py-2 text-sm font-bold rounded-full text-stone-400">底妝</button>
             </div>
@@ -82,9 +91,11 @@
                     <div class="color-circle" style="background-color: #9E5B4F;"></div>
                     <span class="color-label">暖茶棕</span>
                 </div>
-                <div onclick="applyMakeup('lip','#E06666',this)" class="color-item">
-                    <div class="color-circle" style="background-color: #E06666;"></div>
-                    <span class="color-label">芭比粉</span>
+                <div onclick="applyMakeup('lip', null, this)" class="color-item">
+                    <div class="color-circle" style="background-color: #f5f5f4;">
+                        <span class="reset-icon">✕</span>
+                    </div>
+                    <span class="color-label">解除</span>
                 </div>
             </div>
 
@@ -97,9 +108,11 @@
                     <div class="color-circle" style="background-color: #C5A059;"></div>
                     <span class="color-label">香檳金</span>
                 </div>
-                <div onclick="applyMakeup('eye','#D4A5A5',this)" class="color-item">
-                    <div class="color-circle" style="background-color: #D4A5A5;"></div>
-                    <span class="color-label">甜心粉</span>
+                <div onclick="applyMakeup('eye', null, this)" class="color-item">
+                    <div class="color-circle" style="background-color: #f5f5f4;">
+                        <span class="reset-icon">✕</span>
+                    </div>
+                    <span class="color-label">解除</span>
                 </div>
             </div>
 
@@ -111,6 +124,12 @@
                 <div onclick="applyMakeup('face','#E8D0BB',this)" class="color-item">
                     <div class="color-circle" style="background-color: #E8D0BB;"></div>
                     <span class="color-label">自然色</span>
+                </div>
+                <div onclick="applyMakeup('face', null, this)" class="color-item">
+                    <div class="color-circle" style="background-color: #f5f5f4;">
+                        <span class="reset-icon">✕</span>
+                    </div>
+                    <span class="color-label">解除</span>
                 </div>
             </div>
         </div>
@@ -179,7 +198,7 @@
         };
 
         window.applyMakeup = (part, color, el) => {
-            currentMakeup[part] = color;
+            currentMakeup[part] = color; // 如果 color 是 null，對應部位就會清除
             const items = el.parentElement.querySelectorAll('.color-item');
             items.forEach(i => i.classList.remove('selected'));
             el.classList.add('selected');
